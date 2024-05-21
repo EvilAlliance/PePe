@@ -2,6 +2,7 @@
 
 ## Getting Started
 
+[Book Used](https://interpreterbook.com/)
 [Book Used](https://compilerbook.com/)
 ```system
  $ git clone https://github.com/EvilAlliance/PePe.git

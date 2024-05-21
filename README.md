@@ -5,6 +5,7 @@
 [Book Used](https://compilerbook.com/)
 ```system
  $ git clone https://github.com/EvilAlliance/PePe.git
+ $ cd .\PePe\
  $ gcc -o nob nob.c
  $ .\nob 
 ```

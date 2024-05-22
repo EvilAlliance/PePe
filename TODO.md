@@ -7,5 +7,9 @@ A custom programming language which compiles to fasm
     - [ ] Parsing
 - [ ] [Read Second Book](https://compilerbook.com/)
 
+### Lexing
+- [ ] Opening File
+- [ ] Analize fasm
+
 ### Completed Column ✓
 - [x] Completed task title  

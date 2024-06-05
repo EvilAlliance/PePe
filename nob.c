@@ -13,14 +13,14 @@ int main(int argc, char *argv[]) {
   }
 
   Nob_Cmd cmd = {0};
-  nob_cmd_append(&cmd, "gcc", "-o", "./build/main", "main.c");
+  nob_cmd_append(&cmd, "gcc", "-o", "./main.exe", "main.c");
 
   if (!nob_cmd_run_sync(cmd))
     return 1;
 
   cmd.count = 0;
 
-  nob_cmd_append(&cmd, "./build/main");
+  nob_cmd_append(&cmd, "./main.exe");
 
   if (!nob_cmd_run_sync(cmd))
     return 1;

@@ -5,12 +5,12 @@
 #include <stdio.h>
 
 #define G_DA_INIT_CAP
-#define g_da_append(da, item)                                                  \
+#define g_da_append(da, item, items_type)                                      \
   {                                                                            \
     if ((da)->count >= (da)->capacity) {                                       \
       (da)->capacity =                                                         \
           (da)->capacity == 0 ? G_DA_INIT_CAP : (da)->capacity * 2;            \
-      (da)->items =                                                            \
+      (da)->items = (items_type)                                               \
           realloc((da)->items, (da)->capacity * sizeof(*(da)->items));         \
       assert((da)->items != NULL && "Buy more RAM!");                          \
     }                                                                          \
@@ -150,7 +150,7 @@ bool g_read_file_by_line(Read_File *f, String_Builder *sb) {
     }
 
     if (data == '\n' || charsRead == 0) {
-      g_da_append(sb, '\0');
+      g_da_append(sb, '\0', char*);
 
       if (charsRead == 0)
         f->finished = 1;
@@ -158,7 +158,7 @@ bool g_read_file_by_line(Read_File *f, String_Builder *sb) {
       return 1;
     }
 
-    g_da_append(sb, data);
+    g_da_append(sb, data, char*);
   }
 }
 

@@ -1,3 +1,6 @@
+#ifndef G_H_
+#define G_H_
+
 #include <assert.h>
 #include <malloc.h>
 #include <stdarg.h>
@@ -10,8 +13,8 @@
     if ((da)->count >= (da)->capacity) {                                       \
       (da)->capacity =                                                         \
           (da)->capacity == 0 ? G_DA_INIT_CAP : (da)->capacity * 2;            \
-      (da)->items = (items_type)                                               \
-          realloc((da)->items, (da)->capacity * sizeof(*(da)->items));         \
+      (da)->items = (items_type)realloc(                                       \
+          (da)->items, (da)->capacity * sizeof(*(da)->items));                 \
       assert((da)->items != NULL && "Buy more RAM!");                          \
     }                                                                          \
     (da)->items[(da)->count] = (item);                                         \
@@ -22,6 +25,37 @@
 
 typedef enum G_Log_Level { G_INFO, G_WARNING, G_ERROR } G_Log_Level;
 
+void g_log(G_Log_Level l, const char *m, ...);
+
+typedef struct String_Builder {
+  char *items;
+  size_t count;
+  size_t capacity;
+} String_Builder;
+
+typedef struct Read_File {
+  FILE *f;
+  char *path;
+  bool finished;
+} Read_File;
+
+bool g_start_reading_file(Read_File *f);
+
+bool g_read_file_by_bulk(Read_File *f, String_Builder *sb);
+
+bool g_read_file_by_chunk(Read_File *f, String_Builder *sb);
+
+bool g_read_file_by_line(Read_File *f, String_Builder *sb);
+
+bool g_read_file_by_char(Read_File *f, char *data);
+
+bool isNumber(char n);
+
+bool isAlpha(char n);
+
+#endif // G_H_
+
+#ifdef G_IMPLEMENTATION
 void g_log(G_Log_Level l, const char *m, ...) {
   switch (l) {
   case G_INFO:
@@ -43,18 +77,6 @@ void g_log(G_Log_Level l, const char *m, ...) {
   va_end(args);
   fprintf(stderr, "\n");
 }
-
-typedef struct String_Builder {
-  char *items;
-  size_t count;
-  size_t capacity;
-} String_Builder;
-
-typedef struct Read_File {
-  FILE *f;
-  char *path;
-  bool finished;
-} Read_File;
 
 bool g_start_reading_file(Read_File *f) {
   if (fopen_s(&f->f, f->path, "rb")) {
@@ -150,7 +172,7 @@ bool g_read_file_by_line(Read_File *f, String_Builder *sb) {
     }
 
     if (data == '\n' || charsRead == 0) {
-      g_da_append(sb, '\0', char*);
+      g_da_append(sb, '\0', char *);
 
       if (charsRead == 0)
         f->finished = 1;
@@ -158,7 +180,7 @@ bool g_read_file_by_line(Read_File *f, String_Builder *sb) {
       return 1;
     }
 
-    g_da_append(sb, data, char*);
+    g_da_append(sb, data, char *);
   }
 }
 
@@ -178,3 +200,8 @@ bool g_read_file_by_char(Read_File *f, char *data) {
 
   return 1;
 }
+
+bool isNumber(char n) { return 48 <= n && n <= 57; }
+
+bool isAlpha(char n) { return 65 <= n && n <= 90 || 97 <= n && n <= 122; }
+#endif //G_IMPLEMENTATION

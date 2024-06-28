@@ -5,22 +5,11 @@
 
 #define FILE_NAME "./example/FirstStep.pp"
 
-int main(int argc, char *argv[]) {
-  Read_File f = {
-      .path = FILE_NAME,
-  };
-  if (!g_start_reading_file(&f)) {
-    g_log(G_ERROR, "Could not start reading, file name: %s", FILE_NAME);
-    return 1;
-  }
-
-  String_Builder sb = {0};
+TokenList *lexFile(String_Builder *sb) {
   char *beg;
   char *end;
 
-  g_read_file_by_bulk(&f, &sb);
-
-  lex(sb.items, &beg, &end);
+  lex(sb->items, &beg, &end);
 
   TokenList *head = calloc(1, sizeof(*head));
   TokenList *tail = head;
@@ -35,9 +24,29 @@ int main(int argc, char *argv[]) {
     tail->next = current;
     tail = tail->next;
   }
+
+  return head;
+}
+
+int main(int argc, char *argv[]) {
+  Read_File f = {
+      .path = FILE_NAME,
+  };
+  if (!g_start_reading_file(&f)) {
+    g_log(G_ERROR, "Could not start reading, file name: %s", FILE_NAME);
+    return 1;
+  }
+
+  String_Builder sb = {0};
+
+  g_read_file_by_bulk(&f, &sb);
+
+  TokenList *head = lexFile(&sb);
+
   tokenPrint(head);
   tokenFree(head);
 
   g_da_free(&sb);
+
   return 0;
 }

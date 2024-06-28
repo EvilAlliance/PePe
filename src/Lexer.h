@@ -9,8 +9,13 @@ typedef enum TokenType {
 
   SEMICOLON,
 
-  ENTRY,
-  INTEGER_TYPE,
+  INTERGER_8_BIT_TYPE,
+  INTERGER_16_BIT_TYPE,
+  INTERGER_32_BIT_TYPE,
+  INTERGER_64_BIT_TYPE,
+  INTERGER_128_BIT_TYPE,
+
+  MAIN,
   RETURN,
 
   IDENTIFIER,
@@ -36,8 +41,8 @@ extern const char *zoneDelimiters;
 extern const char *delimiters;
 extern const char *lineComments;
 
-bool lex(char* src, char** beg, char** end);
+bool lex(char *src, char **beg, char **end);
 
-void tokenParse(char* beg, char* end, TokenList* t);
-void tokenPrint(TokenList* t);
-void tokenFree(TokenList* t);
+void tokenParse(char *beg, char *end, TokenList *t);
+void tokenPrint(TokenList *t);
+void tokenFree(TokenList *t);

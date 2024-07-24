@@ -7,7 +7,21 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-#define G_DA_INIT_CAP
+// TODO
+
+#define TODO(msg, ...)                                                         \
+  g_log(G_TODO, "File : %s Func: %s Line: %d. " msg "\n", __FILE__,            \
+        __FUNCTION__, __LINE__)
+
+// DYNAMIC ARRAY
+
+typedef struct String_Builder {
+  char *items;
+  size_t count;
+  size_t capacity;
+} String_Builder;
+
+#define G_DA_INIT_CAP 10
 #define g_da_append(da, item, items_type)                                      \
   {                                                                            \
     if ((da)->count >= (da)->capacity) {                                       \
@@ -23,15 +37,13 @@
 
 #define g_da_free(da) free((da)->items);
 
-typedef enum G_Log_Level { G_INFO, G_WARNING, G_ERROR } G_Log_Level;
+// LOGGING
+
+typedef enum G_Log_Level { G_INFO, G_WARNING, G_ERROR, G_TODO } G_Log_Level;
 
 void g_log(G_Log_Level l, const char *m, ...);
 
-typedef struct String_Builder {
-  char *items;
-  size_t count;
-  size_t capacity;
-} String_Builder;
+// READING FILE
 
 typedef struct Read_File {
   FILE *f;
@@ -53,9 +65,24 @@ bool isNumber(char n);
 
 bool isAlpha(char n);
 
+// String_View
+
+typedef struct String_View {
+  char *beg;
+  size_t count;
+} String_View;
+
+#define SV_FMT "%.*s"
+#define SV_ARGS(sv) (int)(sv).count, (sv).beg
+
+int g_svCmp(String_View one, String_View two);
+int g_svStringCmp(String_View one, String_View two);
+
 #endif // G_H_
 
 #ifdef G_IMPLEMENTATION
+
+// LOGGING
 void g_log(G_Log_Level l, const char *m, ...) {
   switch (l) {
   case G_INFO:
@@ -66,6 +93,9 @@ void g_log(G_Log_Level l, const char *m, ...) {
     break;
   case G_ERROR:
     fprintf(stderr, "[ERROR] ");
+    break;
+  case G_TODO:
+    fprintf(stderr, "[TODO] ");
     break;
   default:
     assert(0 && "???");
@@ -78,8 +108,12 @@ void g_log(G_Log_Level l, const char *m, ...) {
   fprintf(stderr, "\n");
 }
 
+// REAFING FILES
+
 bool g_start_reading_file(Read_File *f) {
-  if (fopen_s(&f->f, f->path, "rb")) {
+  f->f = fopen(f->path, "r");
+
+  if (f->f == NULL) {
     g_log(G_ERROR, "Could not open file %s", f->path);
     return 0;
   }
@@ -117,7 +151,7 @@ bool g_read_file_by_bulk(Read_File *f, String_Builder *sb) {
     sb->capacity = sb->count;
   }
 
-  size_t readChars = fread_s(sb->items, fsize, 1, fsize, f->f);
+  size_t readChars = fread(sb->items, 1, fsize, f->f);
 
   if (readChars != fsize) {
     g_log(G_ERROR, "Could not read entire file: %s", f->path);
@@ -139,8 +173,7 @@ bool g_read_file_by_bulk(Read_File *f, String_Builder *sb) {
 bool g_read_file_by_chunk(Read_File *f, String_Builder *sb) {
   assert(sb->capacity > 0 && "Chunk can't be zero or less");
   assert(f->f != NULL && "A File Must be Open");
-  size_t readChars =
-      fread_s(sb->items, sb->capacity - 1, 1, sb->capacity - 1, f->f);
+  size_t readChars = fread(sb->items, 1, sb->capacity - 1, f->f);
 
   sb->items[readChars] = '\0';
 
@@ -163,7 +196,7 @@ bool g_read_file_by_line(Read_File *f, String_Builder *sb) {
 
   char data = 0;
   while (1) {
-    size_t charsRead = fread_s(&data, 1, 1, 1, f->f);
+    size_t charsRead = fread(&data, 1, 1, f->f);
 
     if (ferror(f->f)) {
       f->finished = 1;
@@ -186,7 +219,7 @@ bool g_read_file_by_line(Read_File *f, String_Builder *sb) {
 
 bool g_read_file_by_char(Read_File *f, char *data) {
   assert(f->f != NULL && "A File Must be Open");
-  size_t readChars = fread_s(data, 1, 1, 1, f->f);
+  size_t readChars = fread(data, 1, 1, f->f);
 
   if (ferror(f->f)) {
     f->finished = 1;
@@ -204,4 +237,4 @@ bool g_read_file_by_char(Read_File *f, char *data) {
 bool isNumber(char n) { return 48 <= n && n <= 57; }
 
 bool isAlpha(char n) { return 65 <= n && n <= 90 || 97 <= n && n <= 122; }
-#endif //G_IMPLEMENTATION
+#endif // G_IMPLEMENTATION

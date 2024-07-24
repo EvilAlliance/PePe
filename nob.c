@@ -9,21 +9,34 @@ int main(int argc, char *argv[]) {
   nob_log(NOB_INFO, "--- STAGE 1 ---");
 
   if (!nob_mkdir_if_not_exists("build")) {
-    _mkdir("./build");
+    mkdir("./build", 0700);
   }
 
   Nob_Cmd cmd = {0};
-  nob_cmd_append(&cmd, "gcc", "-o", "./main.exe",  "./src/Lexer.c", "main.c");
+  nob_cmd_append(&cmd, "clang","-g", "-o", "./build/main", "./src/Parser.c",
+                 "./src/Lexer.c", "main.c");
 
   if (!nob_cmd_run_sync(cmd))
     return 1;
 
   cmd.count = 0;
 
-  nob_cmd_append(&cmd, "./main.exe");
+  nob_cmd_append(&cmd, "./build/main");
 
   if (!nob_cmd_run_sync(cmd))
     return 1;
+
+  cmd.count = 0;
+
+  nob_cmd_append(&cmd, "fasm","./output.asm");
+
+  if (!nob_cmd_run_sync(cmd))
+    return 1;
+
+  cmd.count = 0;
+
+  nob_cmd_append(&cmd, "./output");
+  nob_cmd_run_sync(cmd);
 
   return 0;
 }

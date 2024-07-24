@@ -31,7 +31,7 @@ bool lex(char *src, char **beg, char **end) {
   if (!src)
     return 0;
   *beg = src + strspn(src, zoneDelimiters);
-  if (**beg == '\0' || **beg == '\n')
+  if (**beg == '\0')
     return 0;
 
   *end = strpbrk(*beg, delimiters);
@@ -42,83 +42,92 @@ bool lex(char *src, char **beg, char **end) {
   return 1;
 }
 
-char *keyWords[MAX] = {
-    [OPEN_BRACES] = "(",
-    [CLOSE_BRACES] = ")",
+char *keyWords[TOKEN_MAX] = {
+    [TOKEN_OPEN_BRACES] = "(",  [TOKEN_CLOSE_BRACES] = ")",
 
-    [OPEN_BRACKET] = "{",
-    [CLOSE_BRACKET] = "}",
+    [TOKEN_OPEN_BRACKET] = "{", [TOKEN_CLOSE_BRACKET] = "}",
 
-    [SEMICOLON] = ";",
+    [TOKEN_SEMICOLON] = ";",
 
-    [INTERGER_8_BIT_TYPE] = "i8",
-    [INTERGER_16_BIT_TYPE] = "i16",
-    [INTERGER_32_BIT_TYPE] = "i32",
-    [INTERGER_64_BIT_TYPE] = "i64",
-    [INTERGER_128_BIT_TYPE] = "i128",
+    [TOKEN_RETURN] = "return",
 
-    [MAIN] = "main",
-    [RETURN] = "return",
+    [TOKEN_IDENTIFIER] = "",    [TOKEN_NUMBER_LITERAL] = "", [TOKEN_TYPE] = "",
+};
 
-    [IDENTIFIER] = "",
-    [NUMBER_LITERAL] = "",
+char *bitsLiteral[BITS_MAX] = {
+    [BITS_8] = "8",   [BITS_16] = "16",   [BITS_32] = "32",
+    [BITS_64] = "64", [BITS_128] = "128",
 };
 
 void tokenParse(char *beg, char *end, TokenList *t) {
-  for (size_t i = 0; i < MAX; i++) {
+  assert(beg < end);
+  for (size_t i = 0; i < TOKEN_MAX; i++) {
     if ((end - beg) == strlen(keyWords[i]) &&
-        !strncmp(beg, keyWords[i], strlen(keyWords[i]))) {
+        !strncmp(beg, keyWords[i], end - beg)) {
       t->type = i;
-      printf("size of token %zu, size of real token %zu\n", (end - beg),
-             strlen(keyWords[i]));
-      printf("Theorical Token %.*s , Real Token %s\n", (int)(end - beg), beg,
-             keyWords[i]);
-      tokenPrint(t);
-      printf("______________________________________________\n");
       return;
     }
   }
-  if (isCharsNumber(beg, end)) {
-    t->type = NUMBER_LITERAL;
-    t->beg = beg;
-    t->end = end;
+  if (*beg == 'i' && ((end - beg) > 1 && (end - beg) < 5) &&
+      isCharsNumber(++beg, end)) {
+    t->type = TOKEN_TYPE;
+    t->data.type = (Type){
+        .type = TYPES_INTEGER,
+    };
+
+    for (size_t i = 0; i < BITS_MAX; i++) {
+      if (!strncmp(beg, bitsLiteral[i], end - beg)) {
+        t->data.type.size = i;
+        return;
+      }
+    }
+  }
+  char* tempBeg = beg + 1;
+  if (isCharsNumber(beg, end) || (*beg == '-' && isCharsNumber(tempBeg, end))) {
+    t->type = TOKEN_NUMBER_LITERAL;
+    t->data.literal.beg = beg;
+    t->data.literal.count = end - beg;
   } else if (isCharsAlpha(beg, end)) {
-    t->type = IDENTIFIER;
-    t->beg = beg;
-    t->end = end;
+    t->type = TOKEN_IDENTIFIER;
+    t->data.literal.beg = beg;
+    t->data.literal.count = end - beg;
   } else {
     printf("Unknown token: %.*s \n", (int)(end - beg), beg);
   }
 }
 
-char *literal[MAX] = {
-    [OPEN_BRACES] = "OPEN_BRACES",
-    [CLOSE_BRACES] = "CLOSE_BRACES",
+char *literal[TOKEN_MAX] = {
+    [TOKEN_OPEN_BRACES] = "OPEN_BRACES",
+    [TOKEN_CLOSE_BRACES] = "CLOSE_BRACES",
 
-    [OPEN_BRACKET] = "OPEN_BRACKET",
-    [CLOSE_BRACKET] = "CLOSE_BRACES",
+    [TOKEN_OPEN_BRACKET] = "OPEN_BRACKET",
+    [TOKEN_CLOSE_BRACKET] = "CLOSE_BRACES",
 
-    [SEMICOLON] = "SEMICOLON",
+    [TOKEN_SEMICOLON] = "SEMICOLON",
 
-    [INTERGER_8_BIT_TYPE] = "8 Bit Integer",
-    [INTERGER_16_BIT_TYPE] = "16 Bit Integer",
-    [INTERGER_32_BIT_TYPE] = "32 Bit Integer",
-    [INTERGER_64_BIT_TYPE] = "64 Bit Integer",
-    [INTERGER_128_BIT_TYPE] = "128 Bit Integer",
+    [TOKEN_TYPE] = "TYPE",
 
-    [MAIN] = "MAIN",
-    [RETURN] = "RETURN",
+    [TOKEN_RETURN] = "RETURN",
 
-    [NUMBER_LITERAL] = "NUMBER_LITERAL",
-    [IDENTIFIER] = "INDENTIFIER",
+    [TOKEN_NUMBER_LITERAL] = "NUMBER_LITERAL",
+    [TOKEN_IDENTIFIER] = "INDENTIFIER",
+};
+
+char *typeLiteral[TYPES_MAX] = {
+    [TYPES_INTEGER] = "Integer",
 };
 
 void tokenPrint(TokenList *t) {
   while (t != NULL) {
     printf("%s", literal[t->type]);
 
-    if (t->type == IDENTIFIER || t->type == NUMBER_LITERAL)
-      printf("    %.*s", (int)(t->end - t->beg), t->beg);
+    if (t->type == TOKEN_IDENTIFIER || t->type == TOKEN_NUMBER_LITERAL)
+      printf(": " SV_FMT, SV_ARGS(t->data.literal));
+    else if (t->type == TOKEN_TYPE) {
+      printf("\n");
+      printf("    - %s Type \n", typeLiteral[t->data.type.type]);
+      printf("    - %s BITS", bitsLiteral[t->data.type.size]);
+    }
     printf("\n");
     t = t->next;
   }

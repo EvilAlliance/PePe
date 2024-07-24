@@ -1,38 +1,52 @@
+#include "./G.h"
 #include <stdbool.h>
 
 typedef enum TokenType {
-  OPEN_BRACKET,
-  CLOSE_BRACKET,
+  TOKEN_OPEN_BRACKET,
+  TOKEN_CLOSE_BRACKET,
 
-  OPEN_BRACES,
-  CLOSE_BRACES,
+  TOKEN_OPEN_BRACES,
+  TOKEN_CLOSE_BRACES,
 
-  SEMICOLON,
+  TOKEN_SEMICOLON,
 
-  INTERGER_8_BIT_TYPE,
-  INTERGER_16_BIT_TYPE,
-  INTERGER_32_BIT_TYPE,
-  INTERGER_64_BIT_TYPE,
-  INTERGER_128_BIT_TYPE,
+  TOKEN_TYPE,
 
-  MAIN,
-  RETURN,
+  TOKEN_RETURN,
 
-  IDENTIFIER,
-  NUMBER_LITERAL,
+  TOKEN_IDENTIFIER,
+  TOKEN_NUMBER_LITERAL,
 
-  MAX,
+  TOKEN_MAX,
 } TokenType;
 
-typedef struct TokenString {
-  char *beg;
-  char *end;
-} TokenString;
+typedef enum TYPES { TYPES_INTEGER, TYPES_MAX } TYPES;
+
+typedef enum BITS {
+  BITS_8,
+  BITS_16,
+  BITS_32,
+  BITS_64,
+  BITS_128,
+  BITS_MAX,
+} BITS;
+
+typedef struct Type {
+  BITS size;
+  TYPES type;
+} Type;
+
+typedef struct NumberLiteral{
+
+}NumberLiteral;
 
 typedef struct TokenList {
   TokenType type;
-  char *beg;
-  char *end;
+  union {
+    Type type;
+    String_View literal;
+    NumberLiteral numLit;
+  } data;
   struct TokenList *next;
   struct TokenList *prev;
 } TokenList;
@@ -46,3 +60,6 @@ bool lex(char *src, char **beg, char **end);
 void tokenParse(char *beg, char *end, TokenList *t);
 void tokenPrint(TokenList *t);
 void tokenFree(TokenList *t);
+
+extern char* typeLiteral[TYPES_MAX];
+extern char* bitsLiteral[BITS_MAX];

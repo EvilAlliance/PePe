@@ -1,3 +1,3 @@
-i32 main(){
+i8 main(){
     return 1;
 }

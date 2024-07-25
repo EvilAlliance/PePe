@@ -68,12 +68,18 @@ void tokenParse(char *beg, char *end, TokenList *t) {
       return;
     }
   }
-  if (*beg == 'i' && ((end - beg) > 1 && (end - beg) < 5) &&
+  if ((*beg == 'i' || *beg == 'u') && ((end - beg) > 1 && (end - beg) < 5) &&
       isCharsNumber(++beg, end)) {
     t->type = TOKEN_TYPE;
-    t->data.type = (Type){
-        .type = TYPES_INTEGER,
-    };
+    if(*beg == 'i'){
+        t->data.type = (Type){
+            .type = TYPES_INTEGER,
+        };
+    }else if(*beg == 'u'){
+        t->data.type = (Type){
+            .type = TYPES_UNSINGED_INTEGER,
+        };
+    }
 
     for (size_t i = 0; i < BITS_MAX; i++) {
       if (!strncmp(beg, bitsLiteral[i], end - beg)) {
@@ -115,6 +121,7 @@ char *literal[TOKEN_MAX] = {
 
 char *typeLiteral[TYPES_MAX] = {
     [TYPES_INTEGER] = "Integer",
+    [TYPES_UNSINGED_INTEGER] = "Unsinged Integer",
 };
 
 void tokenPrint(TokenList *t) {

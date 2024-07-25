@@ -74,9 +74,9 @@ Node *parseFunction(TokenList *t) {
 
   if (s.count == 4 &&
       !strncmp(s.beg, "main", 4)) {
+          assert(returnType.type == TYPES_UNSINGED_INTEGER && returnType.size == BITS_8 && "Main function has to return an u8");;
           node->type = NODE_MAIN_FUNCTION;
   }else{
-
       node->type = NODE_FUNCTION;
   }
 

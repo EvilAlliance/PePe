@@ -20,7 +20,7 @@ typedef enum TokenType {
   TOKEN_MAX,
 } TokenType;
 
-typedef enum TYPES { TYPES_INTEGER, TYPES_MAX } TYPES;
+typedef enum TYPES { TYPES_UNSINGED_INTEGER,TYPES_INTEGER, TYPES_MAX } TYPES;
 
 typedef enum BITS {
   BITS_8,

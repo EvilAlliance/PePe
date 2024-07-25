@@ -1,3 +1,3 @@
-i8 main(){
+u8 main(){
     return 1;
 }

@@ -1,0 +1,21 @@
+name: Tests
+
+on: [push, pull_request]
+
+jobs:
+  run:
+    runs-on: [ 'ubuntu-latest']
+    strategy:
+      matrix:
+        zig : ['master']
+        python : ['3']
+    name: Test of Compiler
+
+    # The set of steps will be below
+    steps:
+
+    - name: Test Compilation
+      run: zig build
+
+    - name: All Test
+      run: ./test.sh

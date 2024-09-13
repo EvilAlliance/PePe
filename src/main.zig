@@ -1,24 +1,50 @@
 const std = @import("std");
 
-pub fn main() !void {
-    // Prints to stderr (it's a shortcut based on `std.io.getStdErr()`)
-    std.debug.print("All your {s} are belong to us.\n", .{"codebase"});
+const usage = @import("General.zig").usage;
+const message = @import("General.zig").message;
 
-    // stdout is for the actual output of your application, for example if you
-    // are implementing gzip, then only the compressed bytes should be sent to
-    // stdout, not any debugging messages.
-    const stdout_file = std.io.getStdOut().writer();
-    var bw = std.io.bufferedWriter(stdout_file);
-    const stdout = bw.writer();
+const Result = @import("Util.zig").Result;
 
-    try stdout.print("Run `zig build test` to run the tests.\n", .{});
+const Argument = @import("ParseArgs.zig");
 
-    try bw.flush(); // don't forget to flush!
-}
+pub fn main() void {
+    const allocator = std.heap.page_allocator;
 
-test "simple test" {
-    var list = std.ArrayList(i32).init(std.testing.allocator);
-    defer list.deinit(); // try commenting this out and see if zig detects the memory leak!
-    try list.append(42);
-    try std.testing.expectEqual(@as(i32, 42), list.pop());
+    var args = std.ArrayList([]const u8).init(allocator);
+    defer args.deinit();
+
+    var argsIterator = std.process.ArgIterator.initWithAllocator(allocator) catch {
+        std.debug.print("Out of memory", .{});
+        return;
+    };
+    defer argsIterator.deinit();
+
+    _ = argsIterator.skip();
+
+    var arg = argsIterator.next();
+    while (arg != null) : (arg = argsIterator.next()) {
+        args.append(arg.?) catch {
+            std.debug.print("Out of memory", .{});
+            return;
+        };
+    }
+
+    const a: Result(Argument.Arguments, Argument.ArgumentsError) = Argument.parseArguments(args.items);
+    switch (a) {
+        Result(Argument.Arguments, Argument.ArgumentsError).err => |err| {
+            switch (err.err) {
+                error.noSubcommandProvided => std.debug.print("{s} No subcommand provided\n", .{message.Error}),
+                error.noFilePathProvided => std.debug.print("{s} No file provided\n", .{message.Error}),
+                error.unknownSubcommand => std.debug.print("{s} Unknown subcommand {s}\n", .{ message.Error, err.arg.? }),
+                error.unknownArgument => std.debug.print("{s} unknown argument {s}\n", .{ message.Error, err.arg.? }),
+                else => unreachable,
+            }
+            usage();
+            return;
+        },
+        Result(Argument.Arguments, Argument.ArgumentsError).ok => {},
+    }
+
+    const arguments = a.ok;
+    std.debug.print("{}", .{arguments});
 }

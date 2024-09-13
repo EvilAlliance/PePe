@@ -1,7 +1,7 @@
-if [[ -z $1 ]] && [[ $1 -eq "replay" ]]; then
+if [[ -n $1 ]] && [[ "$1" = "replay" ]]; then
     ./test/rere.py replay ./test/test.list
-elif [[ -z $1 ]] && [[ $1 -eq "record" ]]; then
-    ./test/rere.py record ./test/test.list
-else
+elif [[ -n $1 ]] && [[ "$1" = "record" ]]; then
+   ./test/rere.py record ./test/test.list
+else 
     ./test/rere.py replay ./test/test.list
 fi

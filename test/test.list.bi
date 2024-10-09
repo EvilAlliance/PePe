@@ -1,4 +1,4 @@
-:i count 7
+:i count 8
 :b shell 9
 zig build
 :i returncode 0
@@ -101,4 +101,21 @@ zig test ./src/ParseArgs.zig
 2/3 ParseArgs.test_1...OK
 3/3 ParseArgs.test_2...OK
 All 3 tests passed.
+
+:b shell 50
+zig build run -- lex ./../Example/Basic.pp -stdout
+:i returncode 0
+:b stdout 0
+
+:b stderr 409
+    [ERROR]: Could not get absolute path of file (./../Example/Basic.pp)
+    Usage:
+    PePe <subcommand> <file> <...args> -- <...executable args>
+    Subcomands
+        com Compiles file
+        run Compiles file and runs the executable
+        sim Interpreter of the same language
+    Arguments
+        -b - Benchs the stages the compiler goes through
+        -s - No output from the compiler except errors
 

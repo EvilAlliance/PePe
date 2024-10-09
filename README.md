@@ -42,7 +42,19 @@ Interpreter of the same language, the output should be the same
 PePe sim <src> <...args> -- <...executable args>
 ```
 
+### Lex
+
+Output file with tokens
+
+```console
+PePe lex <src> <...args> -- <...executable args>
+```
+
 ## Arguments
+
+### Change Output to stdout
+
+-stdout will change the output to stdout instead  of a file
 
 ### Bench
 

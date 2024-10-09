@@ -1,9 +1,9 @@
 const std = @import("std");
+const util = @import("Util.zig");
 
 const usage = @import("General.zig").usage;
 const message = @import("General.zig").message;
 
-const util = @import("Util.zig");
 const Result = util.Result;
 
 const Argument = @import("ParseArgs.zig");
@@ -39,20 +39,21 @@ pub fn main() void {
         };
     }
 
-    const a: Result(Argument.Arguments, Argument.ArgumentsError) = Argument.parseArguments(args.items);
+    const parseArgumentReturn = Result(Argument.Arguments, util.ErrorPayLoad(Argument.ArgumentsError, ?[]const u8));
+    const a: parseArgumentReturn = Argument.parseArguments(args.items);
     switch (a) {
-        Result(Argument.Arguments, Argument.ArgumentsError).err => |err| {
+        parseArgumentReturn.err => |err| {
             switch (err.err) {
                 error.noSubcommandProvided => std.debug.print("{s} No subcommand provided\n", .{message.Error}),
                 error.noFilePathProvided => std.debug.print("{s} No file provided\n", .{message.Error}),
-                error.unknownSubcommand => std.debug.print("{s} Unknown subcommand {s}\n", .{ message.Error, err.arg.? }),
-                error.unknownArgument => std.debug.print("{s} unknown argument {s}\n", .{ message.Error, err.arg.? }),
+                error.unknownSubcommand => std.debug.print("{s} Unknown subcommand {s}\n", .{ message.Error, err.payload.? }),
+                error.unknownArgument => std.debug.print("{s} unknown argument {s}\n", .{ message.Error, err.payload.? }),
                 else => unreachable,
             }
             usage();
             return;
         },
-        Result(Argument.Arguments, Argument.ArgumentsError).ok => {},
+        parseArgumentReturn.ok => {},
     }
 
     _ = arena.reset(std.heap.ArenaAllocator.ResetMode.retain_capacity);

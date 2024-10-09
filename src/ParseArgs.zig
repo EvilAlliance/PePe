@@ -1,5 +1,5 @@
 const std = @import("std");
-const Result = @import("Util.zig").Result;
+const util = @import("Util.zig");
 
 pub const Arguments = struct {
     build: bool = false,
@@ -11,33 +11,37 @@ pub const Arguments = struct {
     bench: bool = false,
     path: []const u8,
 };
-pub const ArgumentsError = struct {
-    arg: ?[]const u8,
-    err: anyerror,
+
+pub const ArgumentsError = error{
+    noSubcommandProvided,
+    noFilePathProvided,
+    unknownSubcommand,
+    unknownArgument,
 };
 
-pub fn parseArguments(args: [][]const u8) Result(Arguments, ArgumentsError) {
-    const result = Result(Arguments, ArgumentsError);
+const ArgError = util.ErrorPayLoad(ArgumentsError, ?[]const u8);
+const ArgumentResult = util.Result(Arguments, ArgError);
 
+pub fn parseArguments(args: [][]const u8) ArgumentResult {
     if (args.len == 0) {
-        return result.Err(ArgumentsError{ .err = error.noSubcommandProvided, .arg = null });
+        return ArgumentResult.Err(ArgError.init(error.noSubcommandProvided, null));
     } else if (args.len == 1) {
-        return result.Err(ArgumentsError{ .err = error.noFilePathProvided, .arg = null });
+        return ArgumentResult.Err(ArgError.init(error.noFilePathProvided, null));
     }
 
     var a = Arguments{ .path = args[1] };
 
     parseSubcommand(args[0], &a) catch |err|
-        return result.Err(ArgumentsError{ .err = err, .arg = args[0] });
+        return ArgumentResult.Err(ArgError.init(err, args[0]));
 
     const arguments = args[2..];
 
     for (arguments) |arg| {
         parseArgument(arg, &a) catch |err|
-            return result.Err(ArgumentsError{ .err = err, .arg = arg });
+            return ArgumentResult.Err(ArgError.init(err, arg));
     }
 
-    return result.Ok(a);
+    return ArgumentResult.Ok(a);
 }
 
 fn parseSubcommand(subcommand: []const u8, args: *Arguments) !void {
@@ -51,7 +55,6 @@ fn parseSubcommand(subcommand: []const u8, args: *Arguments) !void {
     } else if (std.mem.eql(u8, subcommand, "lex")) {
         args.lex = true;
     } else {
-        //std.debug.print("{s} unknown subcommand {s}\n\n", .{ message.Error, subcommand });
         return error.unknownSubcommand;
     }
 }
@@ -64,44 +67,40 @@ fn parseArgument(arg: []const u8, args: *Arguments) !void {
     } else if (std.mem.eql(u8, arg, "-stdout")) {
         args.stdout = true;
     } else {
-        //std.debug.print("{s} unknown argument {s}\n\n", .{ message.Error, arg });
         return error.unknownArgument;
     }
 }
 
 test {
-    const result = Result(Arguments, ArgumentsError);
-
     var arg = std.ArrayList([]const u8).init(std.testing.allocator);
     defer arg.deinit();
 
-    try std.testing.expect(std.meta.eql(parseArguments(arg.items), result{ .err = ArgumentsError{ .err = error.noSubcommandProvided, .arg = null } }));
-
+    try std.testing.expect(std.meta.eql(parseArguments(arg.items), ArgumentResult{ .err = ArgError.init(error.noSubcommandProvided, null) }));
     try arg.append("com");
-    try std.testing.expect(std.meta.eql(parseArguments(arg.items), result{ .err = ArgumentsError{ .err = error.noFilePathProvided, .arg = null } }));
+    try std.testing.expect(std.meta.eql(parseArguments(arg.items), ArgumentResult{ .err = ArgError.init(error.noFilePathProvided, null) }));
 
     try arg.append("f");
-    try std.testing.expect(std.meta.eql(parseArguments(arg.items), result{ .err = ArgumentsError{ .err = error.unknownSubcommand, .arg = "com" } }));
+    try std.testing.expect(std.meta.eql(parseArguments(arg.items), ArgumentResult{ .err = ArgError.init(error.unknownSubcommand, "com") }));
 
     arg.clearRetainingCapacity();
     try arg.append("run");
     try arg.append("f");
     try arg.append("-f");
-    try std.testing.expect(std.meta.eql(parseArguments(arg.items), result{ .err = ArgumentsError{ .err = error.unknownArgument, .arg = "-f" } }));
+    try std.testing.expect(std.meta.eql(parseArguments(arg.items), ArgumentResult{ .err = ArgError.init(error.unknownArgument, "-f") }));
 
     arg.clearRetainingCapacity();
     try arg.append("run");
     try arg.append("f");
     try arg.append("-s");
     try arg.append("-b");
-    try std.testing.expect(std.meta.eql(parseArguments(arg.items), result{ .ok = Arguments{ .path = "f", .build = true, .run = true, .bench = true, .silence = true } }));
+    try std.testing.expect(std.meta.eql(parseArguments(arg.items), ArgumentResult{ .ok = Arguments{ .path = "f", .build = true, .run = true, .bench = true, .silence = true } }));
 
     arg.clearRetainingCapacity();
     try arg.append("sim");
     try arg.append("f");
     try arg.append("-s");
     try arg.append("-b");
-    try std.testing.expect(std.meta.eql(parseArguments(arg.items), result{ .ok = Arguments{ .path = "f", .simulation = true, .bench = true, .silence = true } }));
+    try std.testing.expect(std.meta.eql(parseArguments(arg.items), ArgumentResult{ .ok = Arguments{ .path = "f", .simulation = true, .bench = true, .silence = true } }));
 }
 
 test {

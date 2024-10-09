@@ -1,7 +1,16 @@
 const std = @import("std");
 const Result = @import("Util.zig").Result;
 
-pub const Arguments = struct { build: bool = false, run: bool = false, simulation: bool = false, silence: bool = false, bench: bool = false, path: []const u8 };
+pub const Arguments = struct {
+    build: bool = false,
+    stdout: bool = false,
+    run: bool = false,
+    simulation: bool = false,
+    lex: bool = false,
+    silence: bool = false,
+    bench: bool = false,
+    path: []const u8,
+};
 pub const ArgumentsError = struct {
     arg: ?[]const u8,
     err: anyerror,
@@ -39,6 +48,8 @@ fn parseSubcommand(subcommand: []const u8, args: *Arguments) !void {
         args.run = true;
     } else if (std.mem.eql(u8, subcommand, "sim")) {
         args.simulation = true;
+    } else if (std.mem.eql(u8, subcommand, "lex")) {
+        args.lex = true;
     } else {
         //std.debug.print("{s} unknown subcommand {s}\n\n", .{ message.Error, subcommand });
         return error.unknownSubcommand;
@@ -50,6 +61,8 @@ fn parseArgument(arg: []const u8, args: *Arguments) !void {
         args.bench = true;
     } else if (std.mem.eql(u8, arg, "-s")) {
         args.silence = true;
+    } else if (std.mem.eql(u8, arg, "-stdout")) {
+        args.stdout = true;
     } else {
         //std.debug.print("{s} unknown argument {s}\n\n", .{ message.Error, arg });
         return error.unknownArgument;
@@ -108,6 +121,11 @@ test {
 
     try parseSubcommand("sim", &a);
     try std.testing.expect(std.meta.eql(a, Arguments{ .path = "f", .simulation = true }));
+
+    a.simulation = false;
+
+    try parseSubcommand("lex", &a);
+    try std.testing.expect(std.meta.eql(a, Arguments{ .path = "f", .lex = true }));
 }
 
 test {
@@ -120,4 +138,8 @@ test {
 
     try parseArgument("-s", &a);
     try std.testing.expect(std.meta.eql(a, Arguments{ .path = "f", .silence = true }));
+
+    a.silence = false;
+    try parseArgument("-stdout", &a);
+    try std.testing.expect(std.meta.eql(a, Arguments{ .path = "f", .stdout = true }));
 }

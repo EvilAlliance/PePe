@@ -65,3 +65,11 @@ PePe lex <src> <...args> -- <...executable args>
 -s with make that the output will be only errors
 
 Silence will force bench to not work because output will be close except for errors
+
+## Sintax
+
+```console
+fn main() u8 {
+    return 0;
+}
+```

@@ -11,7 +11,7 @@ zig build run --
 :i returncode 0
 :b stdout 0
 
-:b stderr 479
+:b stderr 480
     [ERROR]: No subcommand provided
     Usage:
     PePe <subcommand> <file> <...args> -- <...executable args>
@@ -22,7 +22,7 @@ zig build run --
         lex Output the tokens of the file
     Arguments
         -b - Benchs the stages the compiler goes through
-        -s - No output from the compiler except error
+        -s - No output from the compiler except errors
         -output - Insted of creating a file it prints the content
 
 :b shell 20
@@ -30,7 +30,7 @@ zig build run -- com
 :i returncode 0
 :b stdout 0
 
-:b stderr 473
+:b stderr 474
     [ERROR]: No file provided
     Usage:
     PePe <subcommand> <file> <...args> -- <...executable args>
@@ -41,7 +41,7 @@ zig build run -- com
         lex Output the tokens of the file
     Arguments
         -b - Benchs the stages the compiler goes through
-        -s - No output from the compiler except error
+        -s - No output from the compiler except errors
         -output - Insted of creating a file it prints the content
 
 :b shell 20
@@ -49,7 +49,7 @@ zig build run -- run
 :i returncode 0
 :b stdout 0
 
-:b stderr 473
+:b stderr 474
     [ERROR]: No file provided
     Usage:
     PePe <subcommand> <file> <...args> -- <...executable args>
@@ -60,7 +60,7 @@ zig build run -- run
         lex Output the tokens of the file
     Arguments
         -b - Benchs the stages the compiler goes through
-        -s - No output from the compiler except error
+        -s - No output from the compiler except errors
         -output - Insted of creating a file it prints the content
 
 :b shell 30
@@ -68,7 +68,7 @@ zig build run -- com file-path
 :i returncode 0
 :b stdout 0
 
-:b stderr 479
+:b stderr 480
     [ERROR]: Unknown subcommand com
     Usage:
     PePe <subcommand> <file> <...args> -- <...executable args>
@@ -79,7 +79,7 @@ zig build run -- com file-path
         lex Output the tokens of the file
     Arguments
         -b - Benchs the stages the compiler goes through
-        -s - No output from the compiler except error
+        -s - No output from the compiler except errors
         -output - Insted of creating a file it prints the content
 
 :b shell 33
@@ -87,7 +87,7 @@ zig build run -- run file-path -f
 :i returncode 0
 :b stdout 0
 
-:b stderr 476
+:b stderr 477
     [ERROR]: unknown argument -f
     Usage:
     PePe <subcommand> <file> <...args> -- <...executable args>
@@ -98,7 +98,7 @@ zig build run -- run file-path -f
         lex Output the tokens of the file
     Arguments
         -b - Benchs the stages the compiler goes through
-        -s - No output from the compiler except error
+        -s - No output from the compiler except errors
         -output - Insted of creating a file it prints the content
 
 :b shell 28

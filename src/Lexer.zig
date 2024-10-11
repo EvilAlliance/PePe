@@ -25,7 +25,7 @@ const TokenType = enum {
             if (str[0] == '(') {
                 return TokenType.openParen;
             } else if (str[0] == ')') {
-                return TokenType.closeBrace;
+                return TokenType.closeParen;
             } else if (str[0] == '{') {
                 return TokenType.openBrace;
             } else if (str[0] == '}') {

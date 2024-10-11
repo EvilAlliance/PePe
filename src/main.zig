@@ -79,8 +79,10 @@ pub fn main() void {
             return;
         };
 
-        var file: std.fs.File = undefined;
-        defer file.close();
+        var file: ?std.fs.File = null;
+        defer {
+            if (file) |f| f.close();
+        }
 
         var writer: std.fs.File.Writer = undefined;
 
@@ -92,7 +94,7 @@ pub fn main() void {
                 return;
             };
 
-            writer = file.writer();
+            writer = file.?.writer();
         }
 
         const err = writeAllToken(&lexer, writer) orelse return;

@@ -8,9 +8,11 @@ pub fn usage() void {
         \\        com Compiles file
         \\        run Compiles file and runs the executable
         \\        sim Interpreter of the same language
+        \\        lex Output the tokens of the file
         \\    Arguments
         \\        -b - Benchs the stages the compiler goes through
         \\        -s - No output from the compiler except errors
+        \\        -output - Insted of creating a file it prints the content
         \\
     , .{});
 }

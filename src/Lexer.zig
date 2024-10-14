@@ -5,12 +5,12 @@ const Allocator = std.mem.Allocator;
 const print = std.debug.print;
 const assert = std.debug.assert;
 
-const Location = struct {
+pub const Location = struct {
     row: u64,
     col: u64,
 };
 
-const TokenType = enum {
+pub const TokenType = enum {
     openParen,
     closeParen,
     openBrace,
@@ -19,33 +19,55 @@ const TokenType = enum {
     ret,
     func,
     any,
+    numberLiteral,
+    iden,
+    EOF,
+
+    pub fn isIden(str: []const u8) bool {
+        assert(str.len > 0);
+        if (('A' > str[0] or str[0] > 'Z') and
+            ('a' > str[0] or str[0] > 'z')) return false;
+
+        return true;
+    }
+
+    pub fn isNumber(str: []const u8) bool {
+        assert(str.len > 0);
+        for (str) |c| {
+            if ('0' > c or c > '9') return false;
+        }
+
+        return true;
+    }
 
     pub fn get(str: []const u8) TokenType {
+        if (str.len == 0) return TokenType.EOF;
         if (str.len == 1) {
-            if (str[0] == '(') {
-                return TokenType.openParen;
-            } else if (str[0] == ')') {
-                return TokenType.closeParen;
-            } else if (str[0] == '{') {
-                return TokenType.openBrace;
-            } else if (str[0] == '}') {
-                return TokenType.closeBrace;
-            } else if (str[0] == ';') {
-                return TokenType.semicolon;
-            } else {
-                return TokenType.any;
+            switch (str[0]) {
+                '(' => return TokenType.openParen,
+                ')' => return TokenType.closeParen,
+                '{' => return TokenType.openBrace,
+                '}' => return TokenType.closeBrace,
+                ';' => return TokenType.semicolon,
+                '0'...'9' => return TokenType.numberLiteral,
+                'a'...'z', 'A'...'Z' => return TokenType.iden,
+                else => return TokenType.any,
             }
         } else if (std.mem.eql(u8, str, "return")) {
             return TokenType.ret;
         } else if (std.mem.eql(u8, str, "fn")) {
             return TokenType.func;
+        } else if (isIden(str)) {
+            return TokenType.iden;
+        } else if (isNumber(str)) {
+            return TokenType.numberLiteral;
         } else {
             return TokenType.any;
         }
     }
 };
 
-const Token = struct {
+pub const Token = struct {
     path: []const u8,
     absPath: []const u8,
     str: []const u8,
@@ -75,6 +97,7 @@ pub const Lexer = struct {
     currentLoc: Location = Location{ .row = 1, .col = 1 },
     index: usize = 0,
     peeked: usize = 0,
+    finished: bool = false,
 
     const separatorIgnore = " \t\n\r";
     const separator = separatorIgnore ++ "{}();";
@@ -112,13 +135,21 @@ pub const Lexer = struct {
     }
 
     pub fn peek(self: *Lexer) ?Token {
-        self.peeked = self.advance() orelse null;
+        self.peeked = self.advance() orelse {
+            if (self.finished) return null;
+            return Token.init(self.path, self.absPath, "", self.currentLoc);
+        };
 
         return Token.init(self.path, self.absPath, self.content[self.index..self.peeked], self.prevLoc);
     }
 
     pub fn pop(self: *Lexer) ?Token {
-        const i = self.advance() orelse return null;
+        const i = self.advance() orelse {
+            if (self.finished) return null;
+            self.finished = true;
+            return Token.init(self.path, self.absPath, "", self.currentLoc);
+        };
+
         const t = Token.init(self.path, self.absPath, self.content[self.index..i], self.prevLoc);
 
         self.index = i;
@@ -128,7 +159,12 @@ pub const Lexer = struct {
     }
 
     pub fn next(self: *Lexer) ?Token {
-        const i = self.advance() orelse return null;
+        const i = self.advance() orelse {
+            if (self.finished) return null;
+            self.finished = true;
+            return Token.init(self.path, self.absPath, "", self.currentLoc);
+        };
+
         const t = Token.init(self.path, self.absPath, self.content[self.index..i], self.prevLoc);
 
         self.index = i;

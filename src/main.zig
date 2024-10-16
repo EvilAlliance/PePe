@@ -108,8 +108,17 @@ pub fn main() void {
     }
 
     var parser = Parser.Parser.init(alloc, &lexer);
-    const err = parser.parse();
-    err.?.display();
+    const unexpected = parser.parse();
+    if (unexpected) |err| {
+        err.display();
+        return;
+    }
+    var it = parser.program.funcs.iterator();
+
+    var func = it.next();
+    while (func != null) : (func = it.next()) {
+        func.?.value_ptr.diplay(0);
+    }
 }
 
 fn writeAllToken(l: *Lexer.Lexer, writer: std.fs.File.Writer) ?WriteTokenError {

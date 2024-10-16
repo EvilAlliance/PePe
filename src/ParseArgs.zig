@@ -7,6 +7,7 @@ pub const Arguments = struct {
     run: bool = false,
     simulation: bool = false,
     lex: bool = false,
+    parse: bool = false,
     silence: bool = false,
     bench: bool = false,
     path: []const u8,
@@ -54,6 +55,8 @@ fn parseSubcommand(subcommand: []const u8, args: *Arguments) !void {
         args.simulation = true;
     } else if (std.mem.eql(u8, subcommand, "lex")) {
         args.lex = true;
+    } else if (std.mem.eql(u8, subcommand, "parse")) {
+        args.parse = true;
     } else {
         return error.unknownSubcommand;
     }
@@ -93,14 +96,32 @@ test {
     try arg.append("f");
     try arg.append("-s");
     try arg.append("-b");
-    try std.testing.expect(std.meta.eql(parseArguments(arg.items), ArgumentResult{ .ok = Arguments{ .path = "f", .build = true, .run = true, .bench = true, .silence = true } }));
+    try arg.append("-stdout");
+    try std.testing.expect(std.meta.eql(parseArguments(arg.items), ArgumentResult{ .ok = Arguments{ .path = "f", .build = true, .run = true, .bench = true, .silence = true, .stdout = true } }));
 
     arg.clearRetainingCapacity();
     try arg.append("sim");
     try arg.append("f");
     try arg.append("-s");
     try arg.append("-b");
-    try std.testing.expect(std.meta.eql(parseArguments(arg.items), ArgumentResult{ .ok = Arguments{ .path = "f", .simulation = true, .bench = true, .silence = true } }));
+    try arg.append("-stdout");
+    try std.testing.expect(std.meta.eql(parseArguments(arg.items), ArgumentResult{ .ok = Arguments{ .path = "f", .simulation = true, .bench = true, .silence = true, .stdout = true } }));
+
+    arg.clearRetainingCapacity();
+    try arg.append("lex");
+    try arg.append("f");
+    try arg.append("-s");
+    try arg.append("-b");
+    try arg.append("-stdout");
+    try std.testing.expect(std.meta.eql(parseArguments(arg.items), ArgumentResult{ .ok = Arguments{ .path = "f", .lex = true, .bench = true, .silence = true, .stdout = true } }));
+
+    arg.clearRetainingCapacity();
+    try arg.append("parse");
+    try arg.append("f");
+    try arg.append("-s");
+    try arg.append("-b");
+    try arg.append("-stdout");
+    try std.testing.expect(std.meta.eql(parseArguments(arg.items), ArgumentResult{ .ok = Arguments{ .path = "f", .parse = true, .bench = true, .silence = true, .stdout = true } }));
 }
 
 test {

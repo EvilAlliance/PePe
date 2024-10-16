@@ -15,16 +15,59 @@ const Expression = []const u8;
 
 const StatementReturn = struct {
     expr: Expression,
+
+    pub fn diplay(self: StatementReturn, d: u64) void {
+        for (0..d) |_|
+            std.debug.print("\t", .{});
+
+        std.debug.print("Return: {s}\n", .{self.expr});
+    }
 };
 
 const StatementFunc = struct {
     name: []const u8,
     // args: void,
     body: Statements,
+    returnType: []const u8,
+
+    pub fn diplay(self: StatementFunc, d: u64) void {
+        for (0..d) |_|
+            std.debug.print("\t", .{});
+
+        std.debug.print("Function: \n", .{});
+
+        for (0..d) |_|
+            std.debug.print("\t", .{});
+        std.debug.print("\t", .{});
+
+        std.debug.print("Name: {s}\n", .{self.name});
+
+        for (0..d) |_|
+            std.debug.print("\t", .{});
+        std.debug.print("\t", .{});
+
+        std.debug.print("Return Type: {s}\n", .{self.returnType});
+
+        for (0..d) |_|
+            std.debug.print("\t", .{});
+        std.debug.print("\t", .{});
+        std.debug.print("Body: \n", .{});
+
+        for (self.body.items) |statement| {
+            statement.display(d + 2);
+        }
+    }
 };
 const Statement = union(enum) {
     ret: StatementReturn,
     func: StatementFunc,
+
+    pub fn display(self: Statement, d: u64) void {
+        switch (self) {
+            .ret => |ret| ret.diplay(d),
+            .func => |func| func.diplay(d),
+        }
+    }
 };
 
 const Statements = std.ArrayList(Statement);
@@ -47,21 +90,26 @@ const UnexpectedToken = struct {
     }
 };
 
+const Program = struct {
+    funcs: std.StringArrayHashMap(StatementFunc),
+};
+
 pub const Parser = struct {
     l: *Lexer,
     alloc: Allocator,
-    program: *std.ArrayList(Statement),
+    program: Program,
 
     pub fn init(alloc: Allocator, l: *Lexer) Parser {
-        var state = std.ArrayList(Statement).init(alloc);
         return Parser{
             .alloc = alloc,
             .l = l,
-            .program = &state,
+            .program = Program{
+                .funcs = std.StringArrayHashMap(StatementFunc).init(alloc),
+            },
         };
     }
 
-    pub fn parse(self: Parser) ?UnexpectedToken {
+    pub fn parse(self: *Parser) ?UnexpectedToken {
         return self.parseGlobalScope();
     }
 
@@ -78,12 +126,18 @@ pub const Parser = struct {
         return null;
     }
 
-    fn parseGlobalScope(self: Parser) ?UnexpectedToken {
+    pub fn parseGlobalScope(self: *Parser) ?UnexpectedToken {
         const t = self.l.peek() orelse unreachable;
         if (t.type == TokenType.func) {
             const r = self.parseFunction();
             switch (r) {
-                @TypeOf(r).ok => self.program.append(Statement{ .func = r.ok }) catch unreachable,
+                @TypeOf(r).ok => {
+                    const func = self.alloc.create(StatementFunc) catch unreachable;
+                    func.name = r.ok.name;
+                    func.returnType = r.ok.returnType;
+                    func.body = r.ok.body;
+                    self.program.funcs.put(r.ok.name, func.*) catch unreachable;
+                },
                 @TypeOf(r).err => return r.err,
             }
             return null;
@@ -92,7 +146,7 @@ pub const Parser = struct {
         return expect(t, TokenType.any);
     }
 
-    fn parseFunction(self: Parser) Result(StatementFunc, UnexpectedToken) {
+    fn parseFunction(self: *Parser) Result(StatementFunc, UnexpectedToken) {
         const r = Result(StatementFunc, UnexpectedToken);
 
         var unexpected: ?UnexpectedToken = undefined;
@@ -120,9 +174,9 @@ pub const Parser = struct {
         unexpected = expect(separator.?, TokenType.closeParen);
         if (unexpected != null) return r.Err(unexpected.?);
 
-        separator = self.l.pop();
-        assert(separator != null);
-        unexpected = expect(separator.?, TokenType.iden);
+        const t = self.l.pop();
+        assert(t != null);
+        unexpected = expect(t.?, TokenType.iden);
         if (unexpected != null) return r.Err(unexpected.?);
 
         separator = self.l.pop();
@@ -144,14 +198,14 @@ pub const Parser = struct {
         return r.Ok(StatementFunc{
             .name = name.?.str,
             // .args = void,
+            .returnType = t.?.str,
             .body = state.ok,
         });
     }
 
-    fn parseFunctionBody(self: Parser) Result(Statements, UnexpectedToken) {
+    fn parseFunctionBody(self: *Parser) Result(Statements, UnexpectedToken) {
         const r = Result(Statements, UnexpectedToken);
         var unexpected: ?UnexpectedToken = undefined;
-
         var statements = Statements.init(self.alloc);
 
         var t = self.l.peek();
@@ -181,7 +235,7 @@ pub const Parser = struct {
         return r.Ok(statements);
     }
 
-    fn parseReturn(self: Parser) Result(StatementReturn, UnexpectedToken) {
+    fn parseReturn(self: *Parser) Result(StatementReturn, UnexpectedToken) {
         const r = Result(StatementReturn, UnexpectedToken);
 
         const retToken = self.l.peek();
@@ -205,7 +259,7 @@ pub const Parser = struct {
         return r.Ok(ret);
     }
 
-    fn parserExpression(self: Parser) Result(Expression, UnexpectedToken) {
+    fn parserExpression(self: *Parser) Result(Expression, UnexpectedToken) {
         const r = Result(Expression, UnexpectedToken);
 
         const expr = self.l.pop();

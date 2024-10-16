@@ -23,7 +23,7 @@ zig build run --
     Arguments
         -b - Benchs the stages the compiler goes through
         -s - No output from the compiler except errors
-        -output - Insted of creating a file it prints the content
+        -stdout - Insted of creating a file it prints the content
 
 :b shell 20
 zig build run -- com
@@ -42,7 +42,7 @@ zig build run -- com
     Arguments
         -b - Benchs the stages the compiler goes through
         -s - No output from the compiler except errors
-        -output - Insted of creating a file it prints the content
+        -stdout - Insted of creating a file it prints the content
 
 :b shell 20
 zig build run -- run
@@ -61,7 +61,7 @@ zig build run -- run
     Arguments
         -b - Benchs the stages the compiler goes through
         -s - No output from the compiler except errors
-        -output - Insted of creating a file it prints the content
+        -stdout - Insted of creating a file it prints the content
 
 :b shell 30
 zig build run -- com file-path
@@ -80,7 +80,7 @@ zig build run -- com file-path
     Arguments
         -b - Benchs the stages the compiler goes through
         -s - No output from the compiler except errors
-        -output - Insted of creating a file it prints the content
+        -stdout - Insted of creating a file it prints the content
 
 :b shell 33
 zig build run -- run file-path -f
@@ -99,7 +99,7 @@ zig build run -- run file-path -f
     Arguments
         -b - Benchs the stages the compiler goes through
         -s - No output from the compiler except errors
-        -output - Insted of creating a file it prints the content
+        -stdout - Insted of creating a file it prints the content
 
 :b shell 28
 zig test ./src/ParseArgs.zig

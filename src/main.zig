@@ -8,10 +8,12 @@ const Result = util.Result;
 
 const Argument = @import("ParseArgs.zig");
 const Lexer = @import("Lexer.zig");
+const Parser = @import("Parser.zig");
 
 const errorWriteAllToken = error{
     whileWritingBuffer,
 };
+
 const WriteTokenError = util.ErrorPayLoad(errorWriteAllToken, std.fs.File.WriteError);
 
 pub fn main() void {
@@ -105,13 +107,18 @@ pub fn main() void {
         return;
     }
 
-    var t = lexer.next();
-
-    while (t != null) : (t = lexer.next()) {
-        t.?.display();
+    var parser = Parser.Parser.init(alloc, &lexer);
+    const unexpected = parser.parse();
+    if (unexpected) |err| {
+        err.display();
+        return;
     }
+    var it = parser.program.funcs.iterator();
 
-    std.debug.print("{}\n", .{arguments});
+    var func = it.next();
+    while (func != null) : (func = it.next()) {
+        func.?.value_ptr.diplay(0);
+    }
 }
 
 fn writeAllToken(l: *Lexer.Lexer, writer: std.fs.File.Writer) ?WriteTokenError {

@@ -23,7 +23,7 @@ zig build run --
     Arguments
         -b - Benchs the stages the compiler goes through
         -s - No output from the compiler except errors
-        -output - Insted of creating a file it prints the content
+        -stdout - Insted of creating a file it prints the content
 
 :b shell 20
 zig build run -- com
@@ -42,7 +42,7 @@ zig build run -- com
     Arguments
         -b - Benchs the stages the compiler goes through
         -s - No output from the compiler except errors
-        -output - Insted of creating a file it prints the content
+        -stdout - Insted of creating a file it prints the content
 
 :b shell 20
 zig build run -- run
@@ -61,7 +61,7 @@ zig build run -- run
     Arguments
         -b - Benchs the stages the compiler goes through
         -s - No output from the compiler except errors
-        -output - Insted of creating a file it prints the content
+        -stdout - Insted of creating a file it prints the content
 
 :b shell 30
 zig build run -- com file-path
@@ -80,7 +80,7 @@ zig build run -- com file-path
     Arguments
         -b - Benchs the stages the compiler goes through
         -s - No output from the compiler except errors
-        -output - Insted of creating a file it prints the content
+        -stdout - Insted of creating a file it prints the content
 
 :b shell 33
 zig build run -- run file-path -f
@@ -99,7 +99,7 @@ zig build run -- run file-path -f
     Arguments
         -b - Benchs the stages the compiler goes through
         -s - No output from the compiler except errors
-        -output - Insted of creating a file it prints the content
+        -stdout - Insted of creating a file it prints the content
 
 :b shell 28
 zig test ./src/ParseArgs.zig
@@ -115,17 +115,18 @@ All 3 tests passed.
 :b shell 47
 zig build run -- lex ./Example/Basic.pp -stdout
 :i returncode 0
-:b stdout 357
+:b stdout 399
 ./Example/Basic.pp:1:1 fn (func)
-./Example/Basic.pp:1:4 main (any)
+./Example/Basic.pp:1:4 main (iden)
 ./Example/Basic.pp:1:8 ( (openParen)
 ./Example/Basic.pp:1:9 ) (closeParen)
-./Example/Basic.pp:1:11 u8 (any)
+./Example/Basic.pp:1:11 u8 (iden)
 ./Example/Basic.pp:1:13 { (openBrace)
 ./Example/Basic.pp:2:5 return (ret)
-./Example/Basic.pp:2:12 0 (any)
+./Example/Basic.pp:2:12 0 (numberLiteral)
 ./Example/Basic.pp:2:13 ; (semicolon)
 ./Example/Basic.pp:3:1 } (closeBrace)
+./Example/Basic.pp:3:2  (EOF)
 
 :b stderr 0
 

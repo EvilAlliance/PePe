@@ -12,7 +12,7 @@ pub fn usage() void {
         \\    Arguments
         \\        -b - Benchs the stages the compiler goes through
         \\        -s - No output from the compiler except errors
-        \\        -output - Insted of creating a file it prints the content
+        \\        -stdout - Insted of creating a file it prints the content
         \\
     , .{});
 }

@@ -50,6 +50,14 @@ Output file with tokens
 PePe lex <src> <...args> -- <...executable args>
 ```
 
+### Parse
+
+Output file with the statements
+
+```console
+PePe parse <src> <...args> -- <...executable args>
+```
+
 ## Arguments
 
 ### Change Output to stdout

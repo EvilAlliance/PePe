@@ -16,11 +16,18 @@ const Expression = []const u8;
 const StatementReturn = struct {
     expr: Expression,
 
-    pub fn diplay(self: StatementReturn, d: u64) void {
+    pub fn diplay(self: StatementReturn, d: u64) !void {
         for (0..d) |_|
             std.debug.print("\t", .{});
 
         std.debug.print("Return: {s}\n", .{self.expr});
+    }
+
+    pub fn write(self: StatementReturn, d: u64, w: std.fs.File.Writer) !void {
+        for (0..d) |_|
+            try w.print("\t", .{});
+
+        try w.print("Return: {s}\n", .{self.expr});
     }
 };
 
@@ -30,7 +37,7 @@ const StatementFunc = struct {
     body: Statements,
     returnType: []const u8,
 
-    pub fn diplay(self: StatementFunc, d: u64) void {
+    pub fn diplay(self: StatementFunc, d: u64) !void {
         for (0..d) |_|
             std.debug.print("\t", .{});
 
@@ -57,6 +64,34 @@ const StatementFunc = struct {
             statement.display(d + 2);
         }
     }
+
+    pub fn write(self: StatementFunc, d: u64, w: std.fs.File.Writer) !void {
+        for (0..d) |_|
+            try w.print("\t", .{});
+
+        try w.print("Function: \n", .{});
+
+        for (0..d) |_|
+            try w.print("\t", .{});
+        try w.print("\t", .{});
+
+        try w.print("Name: {s}\n", .{self.name});
+
+        for (0..d) |_|
+            try w.print("\t", .{});
+        try w.print("\t", .{});
+
+        try w.print("Return Type: {s}\n", .{self.returnType});
+
+        for (0..d) |_|
+            try w.print("\t", .{});
+        try w.print("\t", .{});
+        try w.print("Body: \n", .{});
+
+        for (self.body.items) |statement| {
+            statement.write(d + 2, w);
+        }
+    }
 };
 const Statement = union(enum) {
     ret: StatementReturn,
@@ -66,6 +101,13 @@ const Statement = union(enum) {
         switch (self) {
             .ret => |ret| ret.diplay(d),
             .func => |func| func.diplay(d),
+        }
+    }
+
+    pub fn write(self: Statement, d: u64, w: std.fs.File.Writer) void {
+        switch (self) {
+            .ret => |ret| ret.write(d, w) catch return,
+            .func => |func| func.write(d, w) catch return,
         }
     }
 };

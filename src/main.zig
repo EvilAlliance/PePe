@@ -113,11 +113,39 @@ pub fn main() void {
         err.display();
         return;
     }
-    var it = parser.program.funcs.iterator();
 
-    var func = it.next();
-    while (func != null) : (func = it.next()) {
-        func.?.value_ptr.diplay(0);
+    if (arguments.parse) {
+        const i = std.mem.lastIndexOf(u8, lexer.absPath, "/").?;
+        var buf: [5120]u8 = undefined;
+        const name = std.fmt.bufPrint(&buf, "{s}.parse", .{lexer.absPath[i + 1 ..]}) catch {
+            std.debug.print("{s} Name is to large\n", .{message.Error});
+            return;
+        };
+
+        var file: ?std.fs.File = null;
+        defer {
+            if (file) |f| f.close();
+        }
+
+        var writer: std.fs.File.Writer = undefined;
+
+        if (arguments.stdout) {
+            writer = std.io.getStdOut().writer();
+        } else {
+            file = std.fs.cwd().createFile(name, .{}) catch |err| {
+                std.debug.print("{s} Could not open file ({s}) becuase {}\n", .{ message.Error, arguments.path, err });
+                return;
+            };
+
+            writer = file.?.writer();
+        }
+
+        var it = parser.program.funcs.iterator();
+        var state = it.next();
+        while (state != null) : (state = it.next()) {
+            state.?.value_ptr.write(0, writer) catch return;
+        }
+        return;
     }
 }
 

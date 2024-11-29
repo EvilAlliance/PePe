@@ -1,7 +1,9 @@
 const std = @import("std");
 const LEXER = @import("Lexer.zig");
 const util = @import("Util.zig");
+const gen = @import("General.zig");
 
+const message = gen.message;
 const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
 
@@ -23,11 +25,13 @@ const StatementReturn = struct {
         std.debug.print("Return: {s}\n", .{self.expr});
     }
 
-    pub fn write(self: StatementReturn, d: u64, w: std.fs.File.Writer) !void {
+    pub fn toString(self: StatementReturn, cont: *std.ArrayList(u8), d: u64) error{OutOfMemory}!void {
         for (0..d) |_|
-            try w.print("\t", .{});
+            try cont.append('\t');
 
-        try w.print("Return: {s}\n", .{self.expr});
+        try cont.appendSlice("Return: ");
+        try cont.appendSlice(self.expr);
+        try cont.append('\n');
     }
 };
 
@@ -65,31 +69,33 @@ const StatementFunc = struct {
         }
     }
 
-    pub fn write(self: StatementFunc, d: u64, w: std.fs.File.Writer) !void {
+    pub fn toString(self: StatementFunc, cont: *std.ArrayList(u8), d: u64) error{OutOfMemory}!void {
         for (0..d) |_|
-            try w.print("\t", .{});
+            try cont.append('\t');
 
-        try w.print("Function: \n", .{});
+        try cont.appendSlice("Function:\n");
 
-        for (0..d) |_|
-            try w.print("\t", .{});
-        try w.print("\t", .{});
+        for (0..d + 1) |_|
+            try cont.append('\t');
 
-        try w.print("Name: {s}\n", .{self.name});
+        try cont.appendSlice("Name: ");
+        try cont.appendSlice(self.name);
+        try cont.append('\n');
 
-        for (0..d) |_|
-            try w.print("\t", .{});
-        try w.print("\t", .{});
+        for (0..d + 1) |_|
+            try cont.append('\t');
 
-        try w.print("Return Type: {s}\n", .{self.returnType});
+        try cont.appendSlice("Return Type: ");
+        try cont.appendSlice(self.returnType);
+        try cont.append('\n');
 
-        for (0..d) |_|
-            try w.print("\t", .{});
-        try w.print("\t", .{});
-        try w.print("Body: \n", .{});
+        for (0..d + 1) |_|
+            try cont.append('\t');
+
+        try cont.appendSlice("Body:\n");
 
         for (self.body.items) |statement| {
-            statement.write(d + 2, w);
+            try statement.toString(cont, d + 2);
         }
     }
 };
@@ -104,10 +110,10 @@ const Statement = union(enum) {
         }
     }
 
-    pub fn write(self: Statement, d: u64, w: std.fs.File.Writer) void {
+    pub fn toString(self: Statement, cont: *std.ArrayList(u8), d: u64) error{OutOfMemory}!void {
         switch (self) {
-            .ret => |ret| ret.write(d, w) catch return,
-            .func => |func| func.write(d, w) catch return,
+            .ret => |ret| try ret.toString(cont, d),
+            .func => |func| try func.toString(cont, d),
         }
     }
 };
@@ -310,5 +316,17 @@ pub const Parser = struct {
         if (unexpected != null) return r.Err(unexpected.?);
 
         return r.Ok(expr.?.str);
+    }
+
+    pub fn toString(self: *Parser, alloc: std.mem.Allocator) error{OutOfMemory}!std.ArrayList(u8) {
+        var cont = std.ArrayList(u8).init(alloc);
+
+        var it = self.program.funcs.iterator();
+
+        var state = it.next();
+        while (state != null) : (state = it.next()) {
+            try state.?.value_ptr.toString(&cont, 0);
+        }
+        return cont;
     }
 };

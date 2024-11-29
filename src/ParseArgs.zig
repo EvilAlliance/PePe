@@ -1,5 +1,8 @@
 const std = @import("std");
 const util = @import("Util.zig");
+const general = @import("General.zig");
+
+const message = general.message;
 
 pub const Arguments = struct {
     build: bool = false,
@@ -13,7 +16,7 @@ pub const Arguments = struct {
     path: []const u8,
 };
 
-pub const ArgumentsError = error{
+const ArgumentsError = error{
     noSubcommandProvided,
     noFilePathProvided,
     unknownSubcommand,
@@ -23,7 +26,45 @@ pub const ArgumentsError = error{
 const ArgError = util.ErrorPayLoad(ArgumentsError, ?[]const u8);
 const ArgumentResult = util.Result(Arguments, ArgError);
 
-pub fn parseArguments(args: [][]const u8) ArgumentResult {
+pub fn getArguments(alloc: std.mem.Allocator) ?Arguments {
+    var args = std.ArrayList([]const u8).init(alloc);
+    defer args.deinit();
+
+    var argsIterator = std.process.ArgIterator.initWithAllocator(alloc) catch {
+        std.debug.print("{s} Out of memory", .{message.Error});
+        return;
+    };
+    defer argsIterator.deinit();
+
+    _ = argsIterator.skip();
+
+    var arg = argsIterator.next();
+    while (arg != null) : (arg = argsIterator.next()) {
+        args.append(arg.?) catch {
+            std.debug.print("{s} Out of memory", .{message.Error});
+            return null;
+        };
+    }
+
+    const a: ArgumentResult = parseArguments(args.items);
+    switch (a) {
+        .err => |err| {
+            switch (err.err) {
+                error.noSubcommandProvided => std.debug.print("{s} No subcommand provided\n", .{message.Error}),
+                error.noFilePathProvided => std.debug.print("{s} No file provided\n", .{message.Error}),
+                error.unknownSubcommand => std.debug.print("{s} Unknown subcommand {s}\n", .{ message.Error, err.payload.? }),
+                error.unknownArgument => std.debug.print("{s} unknown argument {s}\n", .{ message.Error, err.payload.? }),
+                else => unreachable,
+            }
+            return null;
+        },
+        .ok => {},
+    }
+
+    return a.ok;
+}
+
+fn parseArguments(args: [][]const u8) ArgumentResult {
     if (args.len == 0) {
         return ArgumentResult.Err(ArgError.init(error.noSubcommandProvided, null));
     } else if (args.len == 1) {

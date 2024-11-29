@@ -1,4 +1,4 @@
-:i count 8
+:i count 9
 :b shell 9
 zig build
 :i returncode 0
@@ -127,6 +127,18 @@ zig build run -- lex ./Example/Basic.pp -stdout
 ./Example/Basic.pp:2:13 ; (semicolon)
 ./Example/Basic.pp:3:1 } (closeBrace)
 ./Example/Basic.pp:3:2  (EOF)
+
+:b stderr 0
+
+:b shell 49
+zig build run -- parse ./Example/Basic.pp -stdout
+:i returncode 0
+:b stdout 58
+Function:
+	Name: main
+	Return Type: u8
+	Body:
+		Return: 0
 
 :b stderr 0
 

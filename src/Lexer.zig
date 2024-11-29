@@ -1,6 +1,10 @@
 const std = @import("std");
 const util = @import("Util.zig");
+const general = @import("General.zig");
 
+const Arguments = @import("ParseArgs.zig").Arguments;
+
+const message = general.message;
 const Allocator = std.mem.Allocator;
 const print = std.debug.print;
 const assert = std.debug.assert;
@@ -158,22 +162,48 @@ pub const Lexer = struct {
         return t;
     }
 
-    pub fn next(self: *Lexer) ?Token {
-        const i = self.advance() orelse {
-            if (self.finished) return null;
-            self.finished = true;
-            return Token.init(self.path, self.absPath, "", self.currentLoc);
-        };
+    pub fn toString(self: *Lexer, alloc: std.mem.Allocator) error{OutOfMemory}!std.ArrayList(u8) {
+        var cont = std.ArrayList(u8).init(alloc);
 
-        const t = Token.init(self.path, self.absPath, self.content[self.index..i], self.prevLoc);
+        var t = self.pop();
+        var number: [20]u8 = [_]u8{0} ** 20;
+        while (t != null) : (t = self.pop()) {
+            try cont.appendSlice(t.?.path);
+            try cont.append(':');
 
-        self.index = i;
+            _ = std.fmt.bufPrint(&number, "{}", .{t.?.loc.row}) catch unreachable;
 
-        self.prevLoc = self.currentLoc;
+            try cont.appendSlice(number[0 .. (t.?.loc.row / 10) + 1]);
+            try cont.append(':');
 
-        return t;
+            _ = std.fmt.bufPrint(&number, "{}", .{t.?.loc.col}) catch unreachable;
+
+            try cont.appendSlice(number[0 .. (t.?.loc.col / 10) + 1]);
+            try cont.append(' ');
+
+            try cont.appendSlice(t.?.str);
+            try cont.appendSlice(" (");
+
+            try cont.appendSlice(@tagName(t.?.type));
+            try cont.appendSlice(")\n");
+        }
+        return cont;
     }
 };
+
+pub fn lex(alloc: Allocator, arguments: Arguments) ?Lexer {
+    const lexer = init(alloc, arguments.path) catch |err| {
+        switch (err) {
+            error.couldNotOpenFile => std.debug.print("{s} Could not open file: {s}\n", .{ message.Error, arguments.path }),
+            error.couldNotReadFile => std.debug.print("{s} Could not read file: {s}]n", .{ message.Error, arguments.path }),
+            error.couldNotGetFileSize => std.debug.print("{s} Could not get file ({s}) size\n", .{ message.Error, arguments.path }),
+            error.couldNotGetAbsolutePath => std.debug.print("{s} Could not get absolute path of file ({s})\n", .{ message.Error, arguments.path }),
+        }
+        return null;
+    };
+
+    return lexer;
+}
 
 const LexerCreationError = error{
     couldNotOpenFile,
@@ -182,7 +212,7 @@ const LexerCreationError = error{
     couldNotGetAbsolutePath,
 };
 
-pub fn init(alloc: Allocator, path: []const u8) LexerCreationError!Lexer {
+fn init(alloc: Allocator, path: []const u8) LexerCreationError!Lexer {
     const abspath = std.fs.realpathAlloc(alloc, path) catch return error.couldNotGetAbsolutePath;
     const f = std.fs.openFileAbsolute(abspath, .{ .mode = .read_only }) catch return error.couldNotOpenFile;
     defer f.close();

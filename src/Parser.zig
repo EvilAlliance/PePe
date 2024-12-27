@@ -13,21 +13,14 @@ const Lexer = LEXER.Lexer;
 
 const Result = util.Result;
 
-const Expression = []const u8;
+pub const Expression = []const u8;
 
 const StatementReturn = struct {
     expr: Expression,
 
-    pub fn diplay(self: StatementReturn, d: u64) !void {
-        for (0..d) |_|
-            std.debug.print("\t", .{});
-
-        std.debug.print("Return: {s}\n", .{self.expr});
-    }
-
     pub fn toString(self: StatementReturn, cont: *std.ArrayList(u8), d: u64) error{OutOfMemory}!void {
         for (0..d) |_|
-            try cont.append('\t');
+            try cont.append(' ');
 
         try cont.appendSlice("Return: ");
         try cont.appendSlice(self.expr);
@@ -35,80 +28,45 @@ const StatementReturn = struct {
     }
 };
 
-const StatementFunc = struct {
+pub const StatementFunc = struct {
     name: []const u8,
-    // args: void,
+    //args: void,
     body: Statements,
     returnType: []const u8,
 
-    pub fn diplay(self: StatementFunc, d: u64) !void {
-        for (0..d) |_|
-            std.debug.print("\t", .{});
-
-        std.debug.print("Function: \n", .{});
-
-        for (0..d) |_|
-            std.debug.print("\t", .{});
-        std.debug.print("\t", .{});
-
-        std.debug.print("Name: {s}\n", .{self.name});
-
-        for (0..d) |_|
-            std.debug.print("\t", .{});
-        std.debug.print("\t", .{});
-
-        std.debug.print("Return Type: {s}\n", .{self.returnType});
-
-        for (0..d) |_|
-            std.debug.print("\t", .{});
-        std.debug.print("\t", .{});
-        std.debug.print("Body: \n", .{});
-
-        for (self.body.items) |statement| {
-            statement.display(d + 2);
-        }
-    }
-
     pub fn toString(self: StatementFunc, cont: *std.ArrayList(u8), d: u64) error{OutOfMemory}!void {
         for (0..d) |_|
-            try cont.append('\t');
+            try cont.append(' ');
 
         try cont.appendSlice("Function:\n");
 
-        for (0..d + 1) |_|
-            try cont.append('\t');
+        for (0..d + 2) |_|
+            try cont.append(' ');
 
         try cont.appendSlice("Name: ");
         try cont.appendSlice(self.name);
         try cont.append('\n');
 
-        for (0..d + 1) |_|
-            try cont.append('\t');
+        for (0..d + 2) |_|
+            try cont.append(' ');
 
         try cont.appendSlice("Return Type: ");
         try cont.appendSlice(self.returnType);
         try cont.append('\n');
 
-        for (0..d + 1) |_|
-            try cont.append('\t');
+        for (0..d + 2) |_|
+            try cont.append(' ');
 
         try cont.appendSlice("Body:\n");
 
         for (self.body.items) |statement| {
-            try statement.toString(cont, d + 2);
+            try statement.toString(cont, d + 4);
         }
     }
 };
 const Statement = union(enum) {
     ret: StatementReturn,
     func: StatementFunc,
-
-    pub fn display(self: Statement, d: u64) void {
-        switch (self) {
-            .ret => |ret| ret.diplay(d),
-            .func => |func| func.diplay(d),
-        }
-    }
 
     pub fn toString(self: Statement, cont: *std.ArrayList(u8), d: u64) error{OutOfMemory}!void {
         switch (self) {
@@ -118,7 +76,7 @@ const Statement = union(enum) {
     }
 };
 
-const Statements = std.ArrayList(Statement);
+pub const Statements = std.ArrayList(Statement);
 
 const UnexpectedToken = struct {
     expected: TokenType,
@@ -138,7 +96,7 @@ const UnexpectedToken = struct {
     }
 };
 
-const Program = struct {
+pub const Program = struct {
     funcs: std.StringArrayHashMap(StatementFunc),
 };
 
@@ -180,11 +138,7 @@ pub const Parser = struct {
             const r = self.parseFunction();
             switch (r) {
                 @TypeOf(r).ok => {
-                    const func = self.alloc.create(StatementFunc) catch unreachable;
-                    func.name = r.ok.name;
-                    func.returnType = r.ok.returnType;
-                    func.body = r.ok.body;
-                    self.program.funcs.put(r.ok.name, func.*) catch unreachable;
+                    self.program.funcs.put(r.ok.name, r.ok) catch unreachable;
                 },
                 @TypeOf(r).err => return r.err,
             }

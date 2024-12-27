@@ -12,6 +12,7 @@ const getArguments = ParseArguments.getArguments;
 const Arguments = ParseArguments.Arguments;
 const lex = Lexer.lex;
 const Parser = @import("Parser.zig");
+const IR = @import("IR.zig").IR;
 
 fn writeAll(c: []const u8, arg: Arguments, absPath: []const u8, extName: []const u8) std.fs.File.WriteError!void {
     var file: ?std.fs.File = null;
@@ -80,6 +81,21 @@ pub fn main() !void {
         };
 
         try writeAll(cont.items, arguments, lexer.absPath, "parse");
+
+        return;
+    }
+
+    var ir = IR.init(&parser.program, alloc);
+
+    ir.toIR();
+
+    if (arguments.ir) {
+        const cont = ir.toString(alloc) catch {
+            std.debug.print("{s} Out of memory", .{message.Error});
+            return;
+        };
+
+        try writeAll(cont.items, arguments, lexer.absPath, "ir");
 
         return;
     }

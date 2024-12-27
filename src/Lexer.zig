@@ -87,10 +87,6 @@ pub const Token = struct {
             .loc = loc,
         };
     }
-
-    pub fn display(self: *Token) void {
-        print("{s}:{}:{} {s} ({s})\n", .{ self.path, self.loc.row, self.loc.col, self.str, @tagName(self.type) });
-    }
 };
 
 pub const Lexer = struct {

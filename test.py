@@ -90,9 +90,9 @@ def run_test_for_file(file_path: str, subcommand: str, stats: RunStats = RunStat
     assert path.isfile(file_path)
     assert file_path.endswith(PEPE_EXT)
 
-    print('[INFO] Testing %s, With Subcommand %s' % file_path, subcommand)
+    print('[INFO] Testing %s, With Subcommand %s' % (file_path, subcommand))
 
-    tc_path = file_path[:-len(PEPE_EXT)] + '.' + subcommand
+    tc_path = file_path[:-len(PEPE_EXT)] + '.' + subcommand + ".bi"
     tc = load_test_case(tc_path)
 
     error = False
@@ -126,6 +126,8 @@ def run_test_for_file(file_path: str, subcommand: str, stats: RunStats = RunStat
 
 def run_all_test_for_file(file_path: str, stats: RunStats = RunStats()):
    run_test_for_file(file_path, 'lex', stats)
+   run_test_for_file(file_path, 'parse', stats)
+   run_test_for_file(file_path, 'ir', stats)
 
 def run_test_for_folder(folder: str):
     stats = RunStats()
@@ -156,10 +158,10 @@ def update_input_for_file(file_path: str, argv: List[str]):
                    tc.returncode, tc.stdout, tc.stderr)
 
 def update_output_for_file(file_path: str, subcommand: str):
-    tc_path = file_path[:-len(PEPE_EXT)] + "." + subcommand
+    tc_path = file_path[:-len(PEPE_EXT)] + "." + subcommand + ".bi"
     tc = load_test_case(tc_path) or DEFAULT_TEST_CASE
 
-    output = cmd_run_echoed(["./zig-out/bin/PePe", "run", file_path, "-s", *tc.argv], input=tc.stdin, capture_output=True)
+    output = cmd_run_echoed(["./zig-out/bin/PePe", subcommand, file_path, "-stdout", "-s", *tc.argv], input=tc.stdin, capture_output=True)
     print("[INFO] Saving output to %s" % tc_path)
     save_test_case(tc_path,
                    tc.argv, tc.stdin,
@@ -172,6 +174,8 @@ def update_output_for_folder(folder: str, subcommand: str):
 
 def update_all_output_for_file(file_path: str):
     update_output_for_file(file_path, "lex")
+    update_output_for_file(file_path, "parse")
+    update_output_for_file(file_path, "ir")
 
 def update_all_output_for_folder(folder: str):
     for entry in os.scandir(folder):
@@ -245,6 +249,7 @@ if __name__ == '__main__':
             else:
                 assert False, 'unreachable'
         elif subsubcommand == 'input':
+            assert False, 'does not work for PePe'
             if len(argv) == 0:
                 usage(exe_name)
                 print("[ERROR] no file is provided for `%s %s` subcommand" % (subcommand, subsubcommand), file=sys.stderr)
@@ -262,7 +267,7 @@ if __name__ == '__main__':
             target, *argv = argv
 
         if path.isdir(target):
-            run_all_test_for_folder(target)
+            run_test_for_folder(target)
         elif path.isfile(target):
             run_all_test_for_file(target)
         else:
@@ -270,7 +275,6 @@ if __name__ == '__main__':
             assert False, 'unreachable'
 
     elif subcommand == 'full' or subcommand == 'all':
-        cmd_run_echoed(['mypy', './test.py'])
         run_test_for_folder(DEFAULT_TARGET)
     elif subcommand == 'help':
         usage(exe_name)

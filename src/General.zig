@@ -5,10 +5,12 @@ pub fn usage() void {
         \\    Usage:
         \\    PePe <subcommand> <file> <...args> -- <...executable args>
         \\    Subcomands
-        \\        com Compiles file
+        \\        build Compiles file
         \\        run Compiles file and runs the executable
         \\        sim Interpreter of the same language
         \\        lex Output the tokens of the file
+        \\        parse Output the AST of the file
+        \\        ir Output the intermediate representation of the file
         \\    Arguments
         \\        -b - Benchs the stages the compiler goes through
         \\        -s - No output from the compiler except errors

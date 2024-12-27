@@ -1,9 +1,0 @@
-zig build
-zig build run --
-zig build run -- com
-zig build run -- run
-zig build run -- com file-path
-zig build run -- run file-path -f
-zig test ./src/ParseArgs.zig
-zig build run -- lex ./Example/Basic.pp -stdout
-zig build run -- parse ./Example/Basic.pp -stdout

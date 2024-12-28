@@ -1,2 +1,5 @@
+TODO: Extract SSAIntrinsic creation from SSAInstruction toSSA to SSAInstrinsic
+TODO: Extract SSABlock creation from SSAFunction transformBodyToSSA to SSABlock
+TODO: Change SSAInstrinsic Array to an ArrayList
 TODO: Make peek and pop from the Lexer return Token and not Optional Token
 TODO: Extract parseExpression to the respective struct when Expression is developed

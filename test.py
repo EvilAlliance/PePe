@@ -212,7 +212,10 @@ def usage(exe_name: str):
     print("      Print this message to stdout and exit with 0 code.")
 
 if __name__ == '__main__':
-    cmd_run_echoed(['zig', 'build'])
+    com = cmd_run_echoed(['zig', 'build'])
+    if com.returncode != 0:
+        exit(1)
+
     exe_name, *argv = sys.argv
 
     subcommand = "run"

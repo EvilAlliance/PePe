@@ -113,6 +113,15 @@ const SSAFunction = struct {
 
 const SSA = struct {
     funcs: std.StringHashMap(SSAFunction),
+
+    pub fn toString(self: @This(), cont: *std.ArrayList(u8)) error{OutOfMemory}!void {
+        var it = self.funcs.iterator();
+
+        var state = it.next();
+        while (state != null) : (state = it.next()) {
+            try state.?.value_ptr.toString(cont, 0);
+        }
+    }
 };
 
 pub const IR = struct {
@@ -177,12 +186,8 @@ pub const IR = struct {
     pub fn toString(self: *@This(), alloc: std.mem.Allocator) error{OutOfMemory}!std.ArrayList(u8) {
         var cont = std.ArrayList(u8).init(alloc);
 
-        var it = self.ssa.funcs.iterator();
+        try self.ssa.toString(&cont);
 
-        var state = it.next();
-        while (state != null) : (state = it.next()) {
-            try state.?.value_ptr.toString(&cont, 0);
-        }
         return cont;
     }
 };

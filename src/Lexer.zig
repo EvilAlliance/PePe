@@ -87,6 +87,29 @@ pub const Token = struct {
             .loc = loc,
         };
     }
+
+    pub fn toString(self: @This(), cont: *std.ArrayList(u8)) error{OutOfMemory}!void {
+        var number: [20]u8 = [_]u8{0} ** 20;
+
+        try cont.appendSlice(self.path);
+        try cont.append(':');
+
+        _ = std.fmt.bufPrint(&number, "{}", .{self.loc.row}) catch unreachable;
+
+        try cont.appendSlice(number[0 .. (self.loc.row / 10) + 1]);
+        try cont.append(':');
+
+        _ = std.fmt.bufPrint(&number, "{}", .{self.loc.col}) catch unreachable;
+
+        try cont.appendSlice(number[0 .. (self.loc.col / 10) + 1]);
+        try cont.append(' ');
+
+        try cont.appendSlice(self.str);
+        try cont.appendSlice(" (");
+
+        try cont.appendSlice(@tagName(self.type));
+        try cont.appendSlice(")\n");
+    }
 };
 
 pub const Lexer = struct {
@@ -162,33 +185,31 @@ pub const Lexer = struct {
         var cont = std.ArrayList(u8).init(alloc);
 
         var t = self.pop();
-        var number: [20]u8 = [_]u8{0} ** 20;
         while (t != null) : (t = self.pop()) {
-            try cont.appendSlice(t.?.path);
-            try cont.append(':');
-
-            _ = std.fmt.bufPrint(&number, "{}", .{t.?.loc.row}) catch unreachable;
-
-            try cont.appendSlice(number[0 .. (t.?.loc.row / 10) + 1]);
-            try cont.append(':');
-
-            _ = std.fmt.bufPrint(&number, "{}", .{t.?.loc.col}) catch unreachable;
-
-            try cont.appendSlice(number[0 .. (t.?.loc.col / 10) + 1]);
-            try cont.append(' ');
-
-            try cont.appendSlice(t.?.str);
-            try cont.appendSlice(" (");
-
-            try cont.appendSlice(@tagName(t.?.type));
-            try cont.appendSlice(")\n");
+            try t.?.toString(&cont);
         }
+
         return cont;
+    }
+
+    pub fn init(alloc: Allocator, path: []const u8) LexerCreationError!Lexer {
+        const abspath = std.fs.realpathAlloc(alloc, path) catch return error.couldNotGetAbsolutePath;
+        const f = std.fs.openFileAbsolute(abspath, .{ .mode = .read_only }) catch return error.couldNotOpenFile;
+        defer f.close();
+        const file_size = f.getEndPos() catch return error.couldNotGetFileSize;
+        const max_bytes: usize = @intCast(file_size);
+        const c = f.readToEndAlloc(alloc, max_bytes) catch return error.couldNotReadFile;
+
+        return Lexer{
+            .content = c,
+            .absPath = abspath,
+            .path = path,
+        };
     }
 };
 
 pub fn lex(alloc: Allocator, arguments: Arguments) ?Lexer {
-    const lexer = init(alloc, arguments.path) catch |err| {
+    const lexer = Lexer.init(alloc, arguments.path) catch |err| {
         switch (err) {
             error.couldNotOpenFile => std.debug.print("{s} Could not open file: {s}\n", .{ message.Error, arguments.path }),
             error.couldNotReadFile => std.debug.print("{s} Could not read file: {s}]n", .{ message.Error, arguments.path }),
@@ -207,18 +228,3 @@ const LexerCreationError = error{
     couldNotReadFile,
     couldNotGetAbsolutePath,
 };
-
-fn init(alloc: Allocator, path: []const u8) LexerCreationError!Lexer {
-    const abspath = std.fs.realpathAlloc(alloc, path) catch return error.couldNotGetAbsolutePath;
-    const f = std.fs.openFileAbsolute(abspath, .{ .mode = .read_only }) catch return error.couldNotOpenFile;
-    defer f.close();
-    const file_size = f.getEndPos() catch return error.couldNotGetFileSize;
-    const max_bytes: usize = @intCast(file_size);
-    const c = f.readToEndAlloc(alloc, max_bytes) catch return error.couldNotReadFile;
-
-    return Lexer{
-        .content = c,
-        .absPath = abspath,
-        .path = path,
-    };
-}

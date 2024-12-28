@@ -98,6 +98,15 @@ const UnexpectedToken = struct {
 
 pub const Program = struct {
     funcs: std.StringArrayHashMap(StatementFunc),
+
+    pub fn toString(self: @This(), cont: *std.ArrayList(u8)) error{OutOfMemory}!void {
+        var it = self.funcs.iterator();
+
+        var state = it.next();
+        while (state != null) : (state = it.next()) {
+            try state.?.value_ptr.toString(cont, 0);
+        }
+    }
 };
 
 pub const Parser = struct {
@@ -274,13 +283,7 @@ pub const Parser = struct {
 
     pub fn toString(self: *Parser, alloc: std.mem.Allocator) error{OutOfMemory}!std.ArrayList(u8) {
         var cont = std.ArrayList(u8).init(alloc);
-
-        var it = self.program.funcs.iterator();
-
-        var state = it.next();
-        while (state != null) : (state = it.next()) {
-            try state.?.value_ptr.toString(&cont, 0);
-        }
+        try self.program.toString(&cont);
         return cont;
     }
 };

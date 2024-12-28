@@ -1,0 +1,2 @@
+TODO: Make peek and pop from the Lexer return Token and not Optional Token
+TODO: Extract parseExpression to the respective struct when Expression is developed

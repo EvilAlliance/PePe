@@ -87,7 +87,7 @@ pub fn main() !void {
 
     var ir = IR.init(&parser.program, alloc);
 
-    ir.toIR();
+    try ir.toIR();
 
     if (arguments.ir) {
         const cont = ir.toString(alloc) catch {

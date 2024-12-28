@@ -4,6 +4,7 @@ const Parser = @import("./Parser.zig");
 const Program = Parser.Program;
 const StatementFunc = Parser.StatementFunc;
 const Statements = Parser.Statements;
+const Statement = Parser.Statement;
 const Expression = Parser.Expression;
 
 const SSAIntrinsic = struct {
@@ -37,6 +38,23 @@ const SSAIntrinsic = struct {
 
 const SSAInstruction = union(enum) {
     intrinsic: SSAIntrinsic,
+
+    fn toSSA(s: Statement, isMain: bool) SSAInstruction {
+        switch (s) {
+            .ret => |ret| {
+                if (isMain) {
+                    return SSAInstruction{
+                        .intrinsic = SSAIntrinsic{
+                            .name = "@exit",
+                            .args = .{ ret.expr, null, null, null, null, null },
+                        },
+                    };
+                } else unreachable;
+            },
+            .func => |_| unreachable,
+        }
+        unreachable;
+    }
 
     pub fn toString(self: @This(), cont: *std.ArrayList(u8), d: u64) error{OutOfMemory}!void {
         switch (self) {
@@ -79,6 +97,32 @@ const SSAFunction = struct {
     //args: void,
     body: std.ArrayList(SSABlock),
     returnType: []const u8,
+
+    fn transformToSSA(alloc: std.mem.Allocator, sf: StatementFunc) SSAFunction {
+        var f = SSAFunction{
+            .name = sf.name,
+            .body = std.ArrayList(SSABlock).init(alloc),
+            .returnType = sf.returnType,
+        };
+
+        transformBodyToSSA(alloc, &f.body, sf.body, std.mem.eql(u8, f.name, "main"));
+
+        return f;
+    }
+
+    fn transformBodyToSSA(alloc: std.mem.Allocator, body: *std.ArrayList(SSABlock), ss: Statements, isMain: bool) void {
+        var b = SSABlock{
+            .name = "1",
+            .body = std.ArrayList(SSAInstruction).init(alloc),
+        };
+
+        for (ss.items) |s| {
+            const ins = SSAInstruction.toSSA(s, isMain);
+            b.body.append(ins) catch unreachable;
+        }
+
+        body.append(b) catch unreachable;
+    }
 
     pub fn toString(self: @This(), cont: *std.ArrayList(u8), d: u64) error{OutOfMemory}!void {
         for (0..d) |_|
@@ -139,48 +183,14 @@ pub const IR = struct {
         };
     }
 
-    pub fn toIR(self: *IR) void {
+    pub fn toIR(self: *IR) std.mem.Allocator.Error!void {
         var it = self.program.funcs.iterator();
         var c = it.next();
-        while (c != null) : (c = it.next())
-            self.transformFuncToSSA(c.?.value_ptr.*);
-    }
+        while (c != null) : (c = it.next()) {
+            const f = SSAFunction.transformToSSA(self.alloc, c.?.value_ptr.*);
 
-    fn transformFuncToSSA(self: *IR, sf: StatementFunc) void {
-        var f = SSAFunction{
-            .name = sf.name,
-            .body = std.ArrayList(SSABlock).init(self.alloc),
-            .returnType = sf.returnType,
-        };
-
-        self.transformBodyToSSA(&f.body, sf.body, std.mem.eql(u8, f.name, "main"));
-
-        self.ssa.funcs.put(f.name, f) catch unreachable;
-    }
-
-    fn transformBodyToSSA(self: *IR, body: *std.ArrayList(SSABlock), ss: Statements, isMain: bool) void {
-        var b = SSABlock{
-            .name = "1",
-            .body = std.ArrayList(SSAInstruction).init(self.alloc),
-        };
-
-        for (ss.items) |s| {
-            switch (s) {
-                .ret => |ret| {
-                    if (isMain) {
-                        b.body.append(SSAInstruction{
-                            .intrinsic = SSAIntrinsic{
-                                .name = "@exit",
-                                .args = .{ ret.expr, null, null, null, null, null },
-                            },
-                        }) catch unreachable;
-                    } else unreachable;
-                },
-                .func => |_| unreachable,
-            }
+            try self.ssa.funcs.put(f.name, f);
         }
-
-        body.append(b) catch unreachable;
     }
 
     pub fn toString(self: *@This(), alloc: std.mem.Allocator) error{OutOfMemory}!std.ArrayList(u8) {

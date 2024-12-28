@@ -18,6 +18,30 @@ pub const Expression = []const u8;
 const StatementReturn = struct {
     expr: Expression,
 
+    fn parse(p: *Parser) Result(StatementReturn, UnexpectedToken) {
+        const r = Result(StatementReturn, UnexpectedToken);
+
+        const retToken = p.l.peek();
+        assert(retToken != null and retToken.?.type == TokenType.ret);
+
+        _ = p.l.pop();
+
+        const result = p.parserExpression();
+        switch (result) {
+            .err => return r.Err(result.err),
+            .ok => {},
+        }
+        const expr = result.ok;
+        const ret = StatementReturn{ .expr = expr };
+
+        const separator = p.l.pop();
+        assert(separator != null);
+        const unexpected = Parser.expect(separator.?, TokenType.semicolon);
+        if (unexpected != null) return r.Err(unexpected.?);
+
+        return r.Ok(ret);
+    }
+
     pub fn toString(self: StatementReturn, cont: *std.ArrayList(u8), d: u64) error{OutOfMemory}!void {
         for (0..d) |_|
             try cont.append(' ');
@@ -33,6 +57,81 @@ pub const StatementFunc = struct {
     //args: void,
     body: Statements,
     returnType: []const u8,
+
+    pub fn parse(p: *Parser) Result(@This(), UnexpectedToken) {
+        const r = Result(@This(), UnexpectedToken);
+
+        var unexpected: ?UnexpectedToken = undefined;
+
+        const func = p.l.peek();
+        assert(func != null and func.?.type == TokenType.func);
+
+        _ = p.l.pop();
+
+        const name = p.l.pop();
+        assert(name != null);
+
+        unexpected = Parser.expect(name.?, TokenType.iden);
+        if (unexpected != null) return r.Err(unexpected.?);
+
+        var separator = p.l.pop();
+        assert(separator != null);
+        unexpected = Parser.expect(separator.?, TokenType.openParen);
+        if (unexpected != null) return r.Err(unexpected.?);
+
+        // TODO: ARGS
+
+        separator = p.l.pop();
+        assert(separator != null);
+        unexpected = Parser.expect(separator.?, TokenType.closeParen);
+        if (unexpected != null) return r.Err(unexpected.?);
+
+        const t = p.l.pop();
+        assert(t != null);
+        unexpected = Parser.expect(t.?, TokenType.iden);
+        if (unexpected != null) return r.Err(unexpected.?);
+
+        separator = p.l.pop();
+        assert(separator != null);
+        unexpected = Parser.expect(separator.?, TokenType.openBrace);
+        if (unexpected != null) return r.Err(unexpected.?);
+
+        const state = StatementFunc.parseBody(p);
+        switch (state) {
+            @TypeOf(state).ok => {},
+            @TypeOf(state).err => return r.Err(state.err),
+        }
+
+        separator = p.l.pop();
+        assert(separator != null);
+        unexpected = Parser.expect(separator.?, TokenType.closeBrace);
+        if (unexpected != null) return r.Err(unexpected.?);
+
+        return r.Ok(StatementFunc{
+            .name = name.?.str,
+            // .args = void,
+            .returnType = t.?.str,
+            .body = state.ok,
+        });
+    }
+
+    fn parseBody(p: *Parser) Result(Statements, UnexpectedToken) {
+        const r = Result(Statements, UnexpectedToken);
+        var statements = Statements.init(p.alloc);
+
+        var t = p.l.peek();
+
+        while (t != null and t.?.type != TokenType.closeBrace) : (t = p.l.peek()) {
+            const state = Statement.parse(p, t.?);
+
+            switch (state) {
+                .ok => statements.append(state.ok) catch unreachable,
+                .err => return r.Err(state.err),
+            }
+        }
+
+        return r.Ok(statements);
+    }
 
     pub fn toString(self: StatementFunc, cont: *std.ArrayList(u8), d: u64) error{OutOfMemory}!void {
         for (0..d) |_|
@@ -64,9 +163,30 @@ pub const StatementFunc = struct {
         }
     }
 };
-const Statement = union(enum) {
+pub const Statement = union(enum) {
     ret: StatementReturn,
     func: StatementFunc,
+
+    fn parse(p: *Parser, t: Token) Result(Statement, UnexpectedToken) {
+        const r = Result(Statement, UnexpectedToken);
+        switch (t.type) {
+            TokenType.ret => {
+                const state = StatementReturn.parse(p);
+                switch (state) {
+                    .ok => return r.Ok(Statement{ .ret = state.ok }),
+                    .err => return r.Err(state.err),
+                }
+            },
+            TokenType.EOF => {
+                const unexpected = Parser.expect(t, TokenType.closeBrace);
+                return r.Err(unexpected.?);
+            },
+            else => {
+                const unexpected = Parser.expect(t, TokenType.any);
+                return r.Err(unexpected.?);
+            },
+        }
+    }
 
     pub fn toString(self: Statement, cont: *std.ArrayList(u8), d: u64) error{OutOfMemory}!void {
         switch (self) {
@@ -144,7 +264,7 @@ pub const Parser = struct {
     pub fn parseGlobalScope(self: *Parser) ?UnexpectedToken {
         const t = self.l.peek() orelse unreachable;
         if (t.type == TokenType.func) {
-            const r = self.parseFunction();
+            const r = StatementFunc.parse(self);
             switch (r) {
                 @TypeOf(r).ok => {
                     self.program.funcs.put(r.ok.name, r.ok) catch unreachable;
@@ -155,119 +275,6 @@ pub const Parser = struct {
         }
 
         return expect(t, TokenType.any);
-    }
-
-    fn parseFunction(self: *Parser) Result(StatementFunc, UnexpectedToken) {
-        const r = Result(StatementFunc, UnexpectedToken);
-
-        var unexpected: ?UnexpectedToken = undefined;
-
-        const func = self.l.peek();
-        assert(func != null and func.?.type == TokenType.func);
-
-        _ = self.l.pop();
-
-        const name = self.l.pop();
-        assert(name != null);
-
-        unexpected = expect(name.?, TokenType.iden);
-        if (unexpected != null) return r.Err(unexpected.?);
-
-        var separator = self.l.pop();
-        assert(separator != null);
-        unexpected = expect(separator.?, TokenType.openParen);
-        if (unexpected != null) return r.Err(unexpected.?);
-
-        // TODO: ARGS
-
-        separator = self.l.pop();
-        assert(separator != null);
-        unexpected = expect(separator.?, TokenType.closeParen);
-        if (unexpected != null) return r.Err(unexpected.?);
-
-        const t = self.l.pop();
-        assert(t != null);
-        unexpected = expect(t.?, TokenType.iden);
-        if (unexpected != null) return r.Err(unexpected.?);
-
-        separator = self.l.pop();
-        assert(separator != null);
-        unexpected = expect(separator.?, TokenType.openBrace);
-        if (unexpected != null) return r.Err(unexpected.?);
-
-        const state = self.parseFunctionBody();
-        switch (state) {
-            @TypeOf(state).ok => {},
-            @TypeOf(state).err => return r.Err(state.err),
-        }
-
-        separator = self.l.pop();
-        assert(separator != null);
-        unexpected = expect(separator.?, TokenType.closeBrace);
-        if (unexpected != null) return r.Err(unexpected.?);
-
-        return r.Ok(StatementFunc{
-            .name = name.?.str,
-            // .args = void,
-            .returnType = t.?.str,
-            .body = state.ok,
-        });
-    }
-
-    fn parseFunctionBody(self: *Parser) Result(Statements, UnexpectedToken) {
-        const r = Result(Statements, UnexpectedToken);
-        var unexpected: ?UnexpectedToken = undefined;
-        var statements = Statements.init(self.alloc);
-
-        var t = self.l.peek();
-        assert(t != null);
-
-        while (t.?.type != TokenType.closeBrace) {
-            switch (t.?.type) {
-                TokenType.ret => {
-                    const state = self.parseReturn();
-                    switch (state) {
-                        @TypeOf(state).ok => statements.append(Statement{ .ret = state.ok }) catch unreachable,
-                        @TypeOf(state).err => return r.Err(state.err),
-                    }
-                },
-                TokenType.EOF => {
-                    unexpected = expect(t.?, TokenType.closeBrace);
-                    return r.Err(unexpected.?);
-                },
-                else => {
-                    unexpected = expect(t.?, TokenType.any);
-                    return r.Err(unexpected.?);
-                },
-            }
-            t = self.l.peek();
-        }
-
-        return r.Ok(statements);
-    }
-
-    fn parseReturn(self: *Parser) Result(StatementReturn, UnexpectedToken) {
-        const r = Result(StatementReturn, UnexpectedToken);
-
-        const retToken = self.l.peek();
-        assert(retToken != null and retToken.?.type == TokenType.ret);
-
-        _ = self.l.pop();
-
-        const result = self.parserExpression();
-        switch (result) {
-            @TypeOf(result).err => return r.Err(result.err),
-            @TypeOf(result).ok => {},
-        }
-        const expr = result.ok;
-        const ret = StatementReturn{ .expr = expr };
-
-        const separator = self.l.pop();
-        assert(separator != null);
-        const unexpected = expect(separator.?, TokenType.semicolon);
-        if (unexpected != null) return r.Err(unexpected.?);
-
-        return r.Ok(ret);
     }
 
     fn parserExpression(self: *Parser) Result(Expression, UnexpectedToken) {

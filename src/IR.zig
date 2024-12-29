@@ -4,11 +4,19 @@ const Parser = @import("./Parser.zig");
 const Program = Parser.Program;
 const StatementFunc = Parser.StatementFunc;
 const Statements = Parser.Statements;
+const Statement = Parser.Statement;
 const Expression = Parser.Expression;
 
 const SSAIntrinsic = struct {
     name: []const u8,
-    args: [6]?Expression,
+    args: std.ArrayList(Expression),
+
+    fn init(alloc: std.mem.Allocator, name: []const u8) SSAIntrinsic {
+        return SSAIntrinsic{
+            .name = name,
+            .args = std.ArrayList(Expression).init(alloc),
+        };
+    }
 
     pub fn toString(self: @This(), cont: *std.ArrayList(u8), d: u64) error{OutOfMemory}!void {
         for (0..d) |_|
@@ -18,15 +26,11 @@ const SSAIntrinsic = struct {
         try cont.appendSlice(self.name);
         try cont.append('(');
 
-        if (self.args[0]) |arg|
-            try cont.appendSlice(arg);
-        for (self.args[1..], 0..) |arg, i| {
-            if (arg == null) break;
-
-            if (i + 2 < self.args.len or self.args[i + 2] != null)
+        for (self.args.items, 0..) |arg, i| {
+            if (i > 0)
                 try cont.appendSlice(", ");
 
-            try cont.appendSlice(arg.?);
+            try cont.appendSlice(arg);
         }
 
         try cont.append(')');
@@ -37,6 +41,21 @@ const SSAIntrinsic = struct {
 
 const SSAInstruction = union(enum) {
     intrinsic: SSAIntrinsic,
+
+    fn toSSA(alloc: std.mem.Allocator, s: Statement, isMain: bool) error{OutOfMemory}!SSAInstruction {
+        switch (s) {
+            .ret => |ret| {
+                if (isMain) {
+                    var ins = SSAIntrinsic.init(alloc, "@exit");
+                    try ins.args.append(ret.expr);
+                    return SSAInstruction{
+                        .intrinsic = ins,
+                    };
+                } else unreachable;
+            },
+            .func => |_| unreachable,
+        }
+    }
 
     pub fn toString(self: @This(), cont: *std.ArrayList(u8), d: u64) error{OutOfMemory}!void {
         switch (self) {
@@ -79,6 +98,32 @@ const SSAFunction = struct {
     //args: void,
     body: std.ArrayList(SSABlock),
     returnType: []const u8,
+
+    fn transformToSSA(alloc: std.mem.Allocator, sf: StatementFunc) error{OutOfMemory}!SSAFunction {
+        var f = SSAFunction{
+            .name = sf.name,
+            .body = std.ArrayList(SSABlock).init(alloc),
+            .returnType = sf.returnType,
+        };
+
+        try transformBodyToSSA(alloc, &f.body, sf.body, std.mem.eql(u8, f.name, "main"));
+
+        return f;
+    }
+
+    fn transformBodyToSSA(alloc: std.mem.Allocator, body: *std.ArrayList(SSABlock), ss: Statements, isMain: bool) error{OutOfMemory}!void {
+        var b = SSABlock{
+            .name = "1",
+            .body = std.ArrayList(SSAInstruction).init(alloc),
+        };
+
+        for (ss.items) |s| {
+            const ins = try SSAInstruction.toSSA(alloc, s, isMain);
+            try b.body.append(ins);
+        }
+
+        try body.append(b);
+    }
 
     pub fn toString(self: @This(), cont: *std.ArrayList(u8), d: u64) error{OutOfMemory}!void {
         for (0..d) |_|
@@ -139,48 +184,14 @@ pub const IR = struct {
         };
     }
 
-    pub fn toIR(self: *IR) void {
+    pub fn toIR(self: *IR) error{OutOfMemory}!void {
         var it = self.program.funcs.iterator();
         var c = it.next();
-        while (c != null) : (c = it.next())
-            self.transformFuncToSSA(c.?.value_ptr.*);
-    }
+        while (c != null) : (c = it.next()) {
+            const f = try SSAFunction.transformToSSA(self.alloc, c.?.value_ptr.*);
 
-    fn transformFuncToSSA(self: *IR, sf: StatementFunc) void {
-        var f = SSAFunction{
-            .name = sf.name,
-            .body = std.ArrayList(SSABlock).init(self.alloc),
-            .returnType = sf.returnType,
-        };
-
-        self.transformBodyToSSA(&f.body, sf.body, std.mem.eql(u8, f.name, "main"));
-
-        self.ssa.funcs.put(f.name, f) catch unreachable;
-    }
-
-    fn transformBodyToSSA(self: *IR, body: *std.ArrayList(SSABlock), ss: Statements, isMain: bool) void {
-        var b = SSABlock{
-            .name = "1",
-            .body = std.ArrayList(SSAInstruction).init(self.alloc),
-        };
-
-        for (ss.items) |s| {
-            switch (s) {
-                .ret => |ret| {
-                    if (isMain) {
-                        b.body.append(SSAInstruction{
-                            .intrinsic = SSAIntrinsic{
-                                .name = "@exit",
-                                .args = .{ ret.expr, null, null, null, null, null },
-                            },
-                        }) catch unreachable;
-                    } else unreachable;
-                },
-                .func => |_| unreachable,
-            }
+            try self.ssa.funcs.put(f.name, f);
         }
-
-        body.append(b) catch unreachable;
     }
 
     pub fn toString(self: *@This(), alloc: std.mem.Allocator) error{OutOfMemory}!std.ArrayList(u8) {

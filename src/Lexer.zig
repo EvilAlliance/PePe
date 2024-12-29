@@ -88,20 +88,18 @@ pub const Token = struct {
         };
     }
 
-    pub fn toString(self: @This(), cont: *std.ArrayList(u8)) error{OutOfMemory}!void {
-        var number: [20]u8 = [_]u8{0} ** 20;
-
+    pub fn toString(self: @This(), alloc: Allocator, cont: *std.ArrayList(u8)) error{OutOfMemory}!void {
         try cont.appendSlice(self.path);
         try cont.append(':');
 
-        _ = std.fmt.bufPrint(&number, "{}", .{self.loc.row}) catch unreachable;
+        const row = try std.fmt.allocPrint(alloc, "{}", .{self.loc.row});
 
-        try cont.appendSlice(number[0 .. (self.loc.row / 10) + 1]);
+        try cont.appendSlice(row);
         try cont.append(':');
 
-        _ = std.fmt.bufPrint(&number, "{}", .{self.loc.col}) catch unreachable;
+        const col = try std.fmt.allocPrint(alloc, "{}", .{self.loc.col});
 
-        try cont.appendSlice(number[0 .. (self.loc.col / 10) + 1]);
+        try cont.appendSlice(col);
         try cont.append(' ');
 
         try cont.appendSlice(self.str);
@@ -157,18 +155,18 @@ pub const Lexer = struct {
         return i;
     }
 
-    pub fn peek(self: *Lexer) ?Token {
+    pub fn peek(self: *Lexer) Token {
         self.peeked = self.advance() orelse {
-            if (self.finished) return null;
+            if (self.finished) unreachable;
             return Token.init(self.path, self.absPath, "", self.currentLoc);
         };
 
         return Token.init(self.path, self.absPath, self.content[self.index..self.peeked], self.prevLoc);
     }
 
-    pub fn pop(self: *Lexer) ?Token {
+    pub fn pop(self: *Lexer) Token {
         const i = self.advance() orelse {
-            if (self.finished) return null;
+            if (self.finished) unreachable;
             self.finished = true;
             return Token.init(self.path, self.absPath, "", self.currentLoc);
         };
@@ -185,9 +183,11 @@ pub const Lexer = struct {
         var cont = std.ArrayList(u8).init(alloc);
 
         var t = self.pop();
-        while (t != null) : (t = self.pop()) {
-            try t.?.toString(&cont);
+        while (!self.finished) : (t = self.pop()) {
+            try t.toString(alloc, &cont);
         }
+
+        try t.toString(alloc, &cont);
 
         return cont;
     }

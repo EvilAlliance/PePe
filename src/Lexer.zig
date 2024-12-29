@@ -88,16 +88,16 @@ pub const Token = struct {
         };
     }
 
-    pub fn toString(self: @This(), cont: *std.ArrayList(u8)) error{OutOfMemory}!void {
+    pub fn toString(self: @This(), alloc: Allocator, cont: *std.ArrayList(u8)) error{OutOfMemory}!void {
         try cont.appendSlice(self.path);
         try cont.append(':');
 
-        const row = try std.fmt.allocPrint(cont.allocator, "{}", .{self.loc.row});
+        const row = try std.fmt.allocPrint(alloc, "{}", .{self.loc.row});
 
         try cont.appendSlice(row);
         try cont.append(':');
 
-        const col = try std.fmt.allocPrint(cont.allocator, "{}", .{self.loc.col});
+        const col = try std.fmt.allocPrint(alloc, "{}", .{self.loc.col});
 
         try cont.appendSlice(col);
         try cont.append(' ');
@@ -184,10 +184,10 @@ pub const Lexer = struct {
 
         var t = self.pop();
         while (!self.finished) : (t = self.pop()) {
-            try t.toString(&cont);
+            try t.toString(alloc, &cont);
         }
 
-        try t.toString(&cont);
+        try t.toString(alloc, &cont);
 
         return cont;
     }

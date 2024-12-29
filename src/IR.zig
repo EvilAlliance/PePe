@@ -53,7 +53,6 @@ const SSAInstruction = union(enum) {
             },
             .func => |_| unreachable,
         }
-        unreachable;
     }
 
     pub fn toString(self: @This(), cont: *std.ArrayList(u8), d: u64) error{OutOfMemory}!void {
@@ -98,19 +97,19 @@ const SSAFunction = struct {
     body: std.ArrayList(SSABlock),
     returnType: []const u8,
 
-    fn transformToSSA(alloc: std.mem.Allocator, sf: StatementFunc) SSAFunction {
+    fn transformToSSA(alloc: std.mem.Allocator, sf: StatementFunc) error{OutOfMemory}!SSAFunction {
         var f = SSAFunction{
             .name = sf.name,
             .body = std.ArrayList(SSABlock).init(alloc),
             .returnType = sf.returnType,
         };
 
-        transformBodyToSSA(alloc, &f.body, sf.body, std.mem.eql(u8, f.name, "main"));
+        try transformBodyToSSA(alloc, &f.body, sf.body, std.mem.eql(u8, f.name, "main"));
 
         return f;
     }
 
-    fn transformBodyToSSA(alloc: std.mem.Allocator, body: *std.ArrayList(SSABlock), ss: Statements, isMain: bool) void {
+    fn transformBodyToSSA(alloc: std.mem.Allocator, body: *std.ArrayList(SSABlock), ss: Statements, isMain: bool) error{OutOfMemory}!void {
         var b = SSABlock{
             .name = "1",
             .body = std.ArrayList(SSAInstruction).init(alloc),
@@ -118,10 +117,10 @@ const SSAFunction = struct {
 
         for (ss.items) |s| {
             const ins = SSAInstruction.toSSA(s, isMain);
-            b.body.append(ins) catch unreachable;
+            try b.body.append(ins);
         }
 
-        body.append(b) catch unreachable;
+        try body.append(b);
     }
 
     pub fn toString(self: @This(), cont: *std.ArrayList(u8), d: u64) error{OutOfMemory}!void {
@@ -183,11 +182,11 @@ pub const IR = struct {
         };
     }
 
-    pub fn toIR(self: *IR) std.mem.Allocator.Error!void {
+    pub fn toIR(self: *IR) error{OutOfMemory}!void {
         var it = self.program.funcs.iterator();
         var c = it.next();
         while (c != null) : (c = it.next()) {
-            const f = SSAFunction.transformToSSA(self.alloc, c.?.value_ptr.*);
+            const f = try SSAFunction.transformToSSA(self.alloc, c.?.value_ptr.*);
 
             try self.ssa.funcs.put(f.name, f);
         }

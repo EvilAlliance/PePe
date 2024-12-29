@@ -89,19 +89,17 @@ pub const Token = struct {
     }
 
     pub fn toString(self: @This(), cont: *std.ArrayList(u8)) error{OutOfMemory}!void {
-        var number: [20]u8 = [_]u8{0} ** 20;
-
         try cont.appendSlice(self.path);
         try cont.append(':');
 
-        _ = std.fmt.bufPrint(&number, "{}", .{self.loc.row}) catch unreachable;
+        const row = try std.fmt.allocPrint(cont.allocator, "{}", .{self.loc.row});
 
-        try cont.appendSlice(number[0 .. (self.loc.row / 10) + 1]);
+        try cont.appendSlice(row);
         try cont.append(':');
 
-        _ = std.fmt.bufPrint(&number, "{}", .{self.loc.col}) catch unreachable;
+        const col = try std.fmt.allocPrint(cont.allocator, "{}", .{self.loc.col});
 
-        try cont.appendSlice(number[0 .. (self.loc.col / 10) + 1]);
+        try cont.appendSlice(col);
         try cont.append(' ');
 
         try cont.appendSlice(self.str);

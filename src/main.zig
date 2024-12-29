@@ -68,7 +68,11 @@ pub fn main() !void {
     }
 
     var parser = Parser.Parser.init(alloc, &lexer);
-    const unexpected = parser.parse();
+    const unexpected = parser.parse() catch {
+        std.debug.print("{s} Out of memory", .{message.Error});
+        return;
+    };
+
     if (unexpected) |err| {
         err.display();
         return;

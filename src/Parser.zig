@@ -58,7 +58,7 @@ pub const StatementFunc = struct {
     body: Statements,
     returnType: []const u8,
 
-    pub fn parse(p: *Parser) Result(@This(), UnexpectedToken) {
+    pub fn parse(p: *Parser) error{OutOfMemory}!Result(@This(), UnexpectedToken) {
         const r = Result(@This(), UnexpectedToken);
 
         var unexpected: ?UnexpectedToken = undefined;
@@ -96,10 +96,10 @@ pub const StatementFunc = struct {
         unexpected = Parser.expect(separator.?, TokenType.openBrace);
         if (unexpected != null) return r.Err(unexpected.?);
 
-        const state = StatementFunc.parseBody(p);
+        const state = try StatementFunc.parseBody(p);
         switch (state) {
-            @TypeOf(state).ok => {},
-            @TypeOf(state).err => return r.Err(state.err),
+            .ok => {},
+            .err => return r.Err(state.err),
         }
 
         separator = p.l.pop();
@@ -115,7 +115,7 @@ pub const StatementFunc = struct {
         });
     }
 
-    fn parseBody(p: *Parser) Result(Statements, UnexpectedToken) {
+    fn parseBody(p: *Parser) error{OutOfMemory}!Result(Statements, UnexpectedToken) {
         const r = Result(Statements, UnexpectedToken);
         var statements = Statements.init(p.alloc);
 
@@ -125,7 +125,7 @@ pub const StatementFunc = struct {
             const state = Statement.parse(p, t.?);
 
             switch (state) {
-                .ok => statements.append(state.ok) catch unreachable,
+                .ok => try statements.append(state.ok),
                 .err => return r.Err(state.err),
             }
         }
@@ -244,8 +244,8 @@ pub const Parser = struct {
         };
     }
 
-    pub fn parse(self: *Parser) ?UnexpectedToken {
-        return self.parseGlobalScope();
+    pub fn parse(self: *Parser) error{OutOfMemory}!?UnexpectedToken {
+        return try self.parseGlobalScope();
     }
 
     fn expect(token: Token, t: TokenType) ?UnexpectedToken {
@@ -261,15 +261,15 @@ pub const Parser = struct {
         return null;
     }
 
-    pub fn parseGlobalScope(self: *Parser) ?UnexpectedToken {
+    pub fn parseGlobalScope(self: *Parser) error{OutOfMemory}!?UnexpectedToken {
         const t = self.l.peek() orelse unreachable;
         if (t.type == TokenType.func) {
-            const r = StatementFunc.parse(self);
+            const r = try StatementFunc.parse(self);
             switch (r) {
-                @TypeOf(r).ok => {
-                    self.program.funcs.put(r.ok.name, r.ok) catch unreachable;
+                .ok => {
+                    try self.program.funcs.put(r.ok.name, r.ok);
                 },
-                @TypeOf(r).err => return r.err,
+                .err => return r.err,
             }
             return null;
         }

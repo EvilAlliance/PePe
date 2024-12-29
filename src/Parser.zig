@@ -22,7 +22,7 @@ const StatementReturn = struct {
         const r = Result(StatementReturn, UnexpectedToken);
 
         const retToken = p.l.peek();
-        assert(retToken != null and retToken.?.type == TokenType.ret);
+        assert(retToken.type == TokenType.ret);
 
         _ = p.l.pop();
 
@@ -35,8 +35,7 @@ const StatementReturn = struct {
         const ret = StatementReturn{ .expr = expr };
 
         const separator = p.l.pop();
-        assert(separator != null);
-        const unexpected = Parser.expect(separator.?, TokenType.semicolon);
+        const unexpected = Parser.expect(separator, TokenType.semicolon);
         if (unexpected != null) return r.Err(unexpected.?);
 
         return r.Ok(ret);
@@ -64,36 +63,30 @@ pub const StatementFunc = struct {
         var unexpected: ?UnexpectedToken = undefined;
 
         const func = p.l.peek();
-        assert(func != null and func.?.type == TokenType.func);
+        assert(func.type == TokenType.func);
 
         _ = p.l.pop();
 
         const name = p.l.pop();
-        assert(name != null);
-
-        unexpected = Parser.expect(name.?, TokenType.iden);
+        unexpected = Parser.expect(name, TokenType.iden);
         if (unexpected != null) return r.Err(unexpected.?);
 
         var separator = p.l.pop();
-        assert(separator != null);
-        unexpected = Parser.expect(separator.?, TokenType.openParen);
+        unexpected = Parser.expect(separator, TokenType.openParen);
         if (unexpected != null) return r.Err(unexpected.?);
 
         // TODO: ARGS
 
         separator = p.l.pop();
-        assert(separator != null);
-        unexpected = Parser.expect(separator.?, TokenType.closeParen);
+        unexpected = Parser.expect(separator, TokenType.closeParen);
         if (unexpected != null) return r.Err(unexpected.?);
 
         const t = p.l.pop();
-        assert(t != null);
-        unexpected = Parser.expect(t.?, TokenType.iden);
+        unexpected = Parser.expect(t, TokenType.iden);
         if (unexpected != null) return r.Err(unexpected.?);
 
         separator = p.l.pop();
-        assert(separator != null);
-        unexpected = Parser.expect(separator.?, TokenType.openBrace);
+        unexpected = Parser.expect(separator, TokenType.openBrace);
         if (unexpected != null) return r.Err(unexpected.?);
 
         const state = try StatementFunc.parseBody(p);
@@ -103,14 +96,13 @@ pub const StatementFunc = struct {
         }
 
         separator = p.l.pop();
-        assert(separator != null);
-        unexpected = Parser.expect(separator.?, TokenType.closeBrace);
+        unexpected = Parser.expect(separator, TokenType.closeBrace);
         if (unexpected != null) return r.Err(unexpected.?);
 
         return r.Ok(StatementFunc{
-            .name = name.?.str,
+            .name = name.str,
             // .args = void,
-            .returnType = t.?.str,
+            .returnType = t.str,
             .body = state.ok,
         });
     }
@@ -121,8 +113,8 @@ pub const StatementFunc = struct {
 
         var t = p.l.peek();
 
-        while (t != null and t.?.type != TokenType.closeBrace) : (t = p.l.peek()) {
-            const state = Statement.parse(p, t.?);
+        while (t.type != TokenType.closeBrace) : (t = p.l.peek()) {
+            const state = Statement.parse(p, t);
 
             switch (state) {
                 .ok => try statements.append(state.ok),
@@ -262,13 +254,11 @@ pub const Parser = struct {
     }
 
     pub fn parseGlobalScope(self: *Parser) error{OutOfMemory}!?UnexpectedToken {
-        const t = self.l.peek() orelse unreachable;
+        const t = self.l.peek();
         if (t.type == TokenType.func) {
             const r = try StatementFunc.parse(self);
             switch (r) {
-                .ok => {
-                    try self.program.funcs.put(r.ok.name, r.ok);
-                },
+                .ok => try self.program.funcs.put(r.ok.name, r.ok),
                 .err => return r.err,
             }
             return null;
@@ -281,11 +271,10 @@ pub const Parser = struct {
         const r = Result(Expression, UnexpectedToken);
 
         const expr = self.l.pop();
-        assert(expr != null);
-        const unexpected = expect(expr.?, TokenType.numberLiteral);
+        const unexpected = expect(expr, TokenType.numberLiteral);
         if (unexpected != null) return r.Err(unexpected.?);
 
-        return r.Ok(expr.?.str);
+        return r.Ok(expr.str);
     }
 
     pub fn toString(self: *Parser, alloc: std.mem.Allocator) error{OutOfMemory}!std.ArrayList(u8) {

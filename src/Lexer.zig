@@ -155,18 +155,18 @@ pub const Lexer = struct {
         return i;
     }
 
-    pub fn peek(self: *Lexer) ?Token {
+    pub fn peek(self: *Lexer) Token {
         self.peeked = self.advance() orelse {
-            if (self.finished) return null;
+            if (self.finished) unreachable;
             return Token.init(self.path, self.absPath, "", self.currentLoc);
         };
 
         return Token.init(self.path, self.absPath, self.content[self.index..self.peeked], self.prevLoc);
     }
 
-    pub fn pop(self: *Lexer) ?Token {
+    pub fn pop(self: *Lexer) Token {
         const i = self.advance() orelse {
-            if (self.finished) return null;
+            if (self.finished) unreachable;
             self.finished = true;
             return Token.init(self.path, self.absPath, "", self.currentLoc);
         };
@@ -183,9 +183,11 @@ pub const Lexer = struct {
         var cont = std.ArrayList(u8).init(alloc);
 
         var t = self.pop();
-        while (t != null) : (t = self.pop()) {
-            try t.?.toString(&cont);
+        while (!self.finished) : (t = self.pop()) {
+            try t.toString(&cont);
         }
+
+        try t.toString(&cont);
 
         return cont;
     }

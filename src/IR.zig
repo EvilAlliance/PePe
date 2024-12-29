@@ -9,7 +9,14 @@ const Expression = Parser.Expression;
 
 const SSAIntrinsic = struct {
     name: []const u8,
-    args: [6]?Expression,
+    args: std.ArrayList(Expression),
+
+    fn init(alloc: std.mem.Allocator, name: []const u8) SSAIntrinsic {
+        return SSAIntrinsic{
+            .name = name,
+            .args = std.ArrayList(Expression).init(alloc),
+        };
+    }
 
     pub fn toString(self: @This(), cont: *std.ArrayList(u8), d: u64) error{OutOfMemory}!void {
         for (0..d) |_|
@@ -19,15 +26,11 @@ const SSAIntrinsic = struct {
         try cont.appendSlice(self.name);
         try cont.append('(');
 
-        if (self.args[0]) |arg|
-            try cont.appendSlice(arg);
-        for (self.args[1..], 0..) |arg, i| {
-            if (arg == null) break;
-
-            if (i + 2 < self.args.len or self.args[i + 2] != null)
+        for (self.args.items, 0..) |arg, i| {
+            if (i > 0)
                 try cont.appendSlice(", ");
 
-            try cont.appendSlice(arg.?);
+            try cont.appendSlice(arg);
         }
 
         try cont.append(')');
@@ -39,15 +42,14 @@ const SSAIntrinsic = struct {
 const SSAInstruction = union(enum) {
     intrinsic: SSAIntrinsic,
 
-    fn toSSA(s: Statement, isMain: bool) SSAInstruction {
+    fn toSSA(alloc: std.mem.Allocator, s: Statement, isMain: bool) error{OutOfMemory}!SSAInstruction {
         switch (s) {
             .ret => |ret| {
                 if (isMain) {
+                    var ins = SSAIntrinsic.init(alloc, "@exit");
+                    try ins.args.append(ret.expr);
                     return SSAInstruction{
-                        .intrinsic = SSAIntrinsic{
-                            .name = "@exit",
-                            .args = .{ ret.expr, null, null, null, null, null },
-                        },
+                        .intrinsic = ins,
                     };
                 } else unreachable;
             },
@@ -116,7 +118,7 @@ const SSAFunction = struct {
         };
 
         for (ss.items) |s| {
-            const ins = SSAInstruction.toSSA(s, isMain);
+            const ins = try SSAInstruction.toSSA(alloc, s, isMain);
             try b.body.append(ins);
         }
 

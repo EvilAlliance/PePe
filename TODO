@@ -1,3 +1,4 @@
+TODO: Two arena allocator so it is possible to clean memory and a different allocator only for the file
 TODO: Extract from SSAFunction transformBodyToSSA the creation of SSABlock into SSABlock struct
 TODO: Extract from SSAInstraction toSSA the creation to SSAInstrinsic
 TODO: Extract parseExpression to the respective struct when Expression is developed

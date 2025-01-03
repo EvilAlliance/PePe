@@ -48,6 +48,54 @@ fn writeAll(c: []const u8, arg: Arguments, name: []u8) std.fs.File.WriteError!vo
     try writer.writeAll(c);
 }
 
+fn compile(alloc: std.mem.Allocator, cont: std.ArrayList(u8), name: []u8, arguments: Arguments) !u32 {
+    try writeAll(cont.items, arguments, name);
+
+    var fasm = std.process.Child.init(&[_][]const u8{ "fasm", name }, alloc);
+
+    fasm.stdout_behavior = .Pipe;
+    fasm.stderr_behavior = .Pipe;
+
+    // Spawn the process and capture stdout and stderr
+    try fasm.spawn();
+
+    const stdoutOutput: []u8 = try fasm.stdout.?.reader().readAllAlloc(alloc, std.math.maxInt(u64));
+    const stderrOutput: []u8 = try fasm.stderr.?.reader().readAllAlloc(alloc, std.math.maxInt(u64));
+
+    const fasmStatus = try fasm.wait();
+
+    switch (fasmStatus) {
+        .Exited => |x| {
+            if (x != 0) {
+                std.debug.print("Assembler got error {x}\nstdout:\n{s}stderr:\n{s}", .{ x, stdoutOutput, stderrOutput });
+
+                try clean(alloc, name);
+
+                return x;
+            }
+        },
+        .Signal, .Stopped => |x| {
+            std.debug.print("Assembler got error {x}\nstdout:\n{s}stderr:\n{s}", .{ x, stdoutOutput, stderrOutput });
+
+            try clean(alloc, name);
+
+            return x;
+        },
+        .Unknown => unreachable,
+    }
+
+    var exec = std.process.Child.init(&[_][]const u8{ "chmod", "+x", name[0..std.mem.lastIndexOf(u8, name, ".").?] }, alloc);
+    _ = try exec.spawnAndWait();
+
+    return 0;
+}
+
+fn clean(alloc: std.mem.Allocator, name: []u8) !void {
+    var rm = std.process.Child.init(&[_][]const u8{ "rm", name }, alloc);
+
+    _ = try rm.spawnAndWait();
+}
+
 pub fn main() !u8 {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
@@ -128,57 +176,15 @@ pub fn main() !u8 {
     if (arguments.build and arguments.stdout) {
         const name = getName(alloc, lexer.absPath, "asm");
         try writeAll(cont.items, arguments, name);
+        return 0;
     }
 
     const name = getName(alloc, lexer.absPath, "asm");
-    try writeAll(cont.items, arguments, name);
+    const r = try compile(alloc, cont, name, arguments);
 
-    var fasm = std.process.Child.init(&[_][]const u8{ "fasm", name }, alloc);
+    if (r != 0) return 1;
 
-    fasm.stdout_behavior = .Pipe;
-    fasm.stderr_behavior = .Pipe;
-
-    // Spawn the process and capture stdout and stderr
-    try fasm.spawn();
-    fasm.stdout_behavior = .Pipe;
-    fasm.stderr_behavior = .Pipe;
-
-    const stdoutOutput: []u8 = try fasm.stdout.?.reader().readAllAlloc(alloc, std.math.maxInt(u64));
-    const stderrOutput: []u8 = try fasm.stderr.?.reader().readAllAlloc(alloc, std.math.maxInt(u64));
-
-    const fasmStatus = try fasm.wait();
-
-    switch (fasmStatus) {
-        .Exited => |x| {
-            if (x != 0) {
-                std.debug.print("Assembler got error {x}\nstdout:\n{s}stderr:\n{s}", .{ x, stdoutOutput, stderrOutput });
-
-                var rm = std.process.Child.init(&[_][]const u8{ "rm", name }, alloc);
-
-                _ = try rm.spawnAndWait();
-
-                return 1;
-            }
-        },
-        .Signal, .Stopped => |x| {
-            std.debug.print("Assembler got error {x}\nstdout:\n{s}stderr:\n{s}", .{ x, stdoutOutput, stderrOutput });
-
-            var rm = std.process.Child.init(&[_][]const u8{ "rm", name }, alloc);
-
-            _ = try rm.spawnAndWait();
-
-            return 1;
-        },
-        .Unknown => unreachable,
-    }
-
-    var exec = std.process.Child.init(&[_][]const u8{ "chmod", "+x", name[0..std.mem.lastIndexOf(u8, name, ".").?] }, alloc);
-
-    _ = try exec.spawnAndWait();
-
-    var rm = std.process.Child.init(&[_][]const u8{ "rm", name }, alloc);
-
-    _ = try rm.spawnAndWait();
+    try clean(alloc, name);
 
     if (arguments.run) {
         var run = std.process.Child.init(&[_][]const u8{}, alloc);

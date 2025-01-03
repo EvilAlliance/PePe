@@ -128,6 +128,7 @@ def run_all_test_for_file(file_path: str, stats: RunStats = RunStats()):
    run_test_for_file(file_path, 'lex', stats)
    run_test_for_file(file_path, 'parse', stats)
    run_test_for_file(file_path, 'ir', stats)
+   run_test_for_file(file_path, 'build', stats)
 
 def run_test_for_folder(folder: str):
     stats = RunStats()

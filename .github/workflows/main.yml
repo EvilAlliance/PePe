@@ -15,5 +15,10 @@ jobs:
       with:
         python-version: 3.12.3
 
+    - name: Install FASM
+      run: |
+        sudo apt update
+        sudo apt install -y fasm
+
     - name: All Test
       run: python3 test.py

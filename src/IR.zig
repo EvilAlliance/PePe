@@ -7,7 +7,9 @@ const Statements = Parser.Statements;
 const Statement = Parser.Statement;
 const Expression = Parser.Expression;
 
-const SSAIntrinsic = struct {
+const IntrinsicFn = @import("./Intrinsics.zig").IntrinsicFn;
+
+pub const SSAIntrinsic = struct {
     name: []const u8,
     args: std.ArrayList(Expression),
 
@@ -37,6 +39,11 @@ const SSAIntrinsic = struct {
 
         try cont.append('\n');
     }
+
+    pub fn emitFasm(self: @This(), cont: *std.ArrayList(u8)) !void {
+        const fnExit = IntrinsicFn.get(self.name) orelse unreachable;
+        try fnExit(cont, self);
+    }
 };
 
 const SSAInstruction = union(enum) {
@@ -60,6 +67,12 @@ const SSAInstruction = union(enum) {
     pub fn toString(self: @This(), cont: *std.ArrayList(u8), d: u64) error{OutOfMemory}!void {
         switch (self) {
             .intrinsic => |in| try in.toString(cont, d),
+        }
+    }
+
+    pub fn emitFasm(self: @This(), cont: *std.ArrayList(u8)) !void {
+        switch (self) {
+            .intrinsic => |in| try in.emitFasm(cont),
         }
     }
 };
@@ -93,7 +106,7 @@ const SSABlock = struct {
     }
 };
 
-const SSAFunction = struct {
+pub const SSAFunction = struct {
     name: []const u8,
     //args: void,
     body: std.ArrayList(SSABlock),
@@ -156,7 +169,7 @@ const SSAFunction = struct {
     }
 };
 
-const SSA = struct {
+pub const SSA = struct {
     funcs: std.StringHashMap(SSAFunction),
 
     pub fn toString(self: @This(), cont: *std.ArrayList(u8)) error{OutOfMemory}!void {

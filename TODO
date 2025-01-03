@@ -1,5 +1,7 @@
+TODO: Two arena allocator so it is possible to clean memory and a different allocator only for the file
 TODO: Extract from SSAFunction transformBodyToSSA the creation of SSABlock into SSABlock struct
 TODO: Extract from SSAInstraction toSSA the creation to SSAInstrinsic
+TODO: Deal with all try or error in main so that main returns u8 instead of !u8
 TODO: Extract parseExpression to the respective struct when Expression is developed
 DONE: Do not unse unreachable, only when telling that is not implemented
 DONE: Make peek and pop from the Lexer return Token and not Optional Token

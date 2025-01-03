@@ -86,7 +86,7 @@ class RunStats:
     ignored: int = 0
     failed_files: List[str] = field(default_factory=list)
 
-def run_test_for_file(file_path: str, subcommand: str, stats: RunStats = RunStats()):
+def run_test_for_file_stdout(file_path: str, subcommand: str, stats: RunStats = RunStats()):
     assert path.isfile(file_path)
     assert file_path.endswith(PEPE_EXT)
 
@@ -124,10 +124,50 @@ def run_test_for_file(file_path: str, subcommand: str, stats: RunStats = RunStat
     if error:
         stats.failed_files.append(file_path)
 
+def run_test_for_file(file_path: str, subcommand: str, stats: RunStats = RunStats()):
+    assert path.isfile(file_path)
+    assert file_path.endswith(PEPE_EXT)
+
+    print('[INFO] Testing %s, With Subcommand %s' % (file_path, subcommand))
+
+    tc_path = file_path[:-len(PEPE_EXT)] + '.' + subcommand + ".bi"
+    tc = load_test_case(tc_path)
+
+    error = False
+
+    if tc is not None:
+        # TODO: do something about fasm splash output
+        com = cmd_run_echoed(["./zig-out/bin/PePe", subcommand, file_path, "-s", *tc.argv], input=tc.stdin, capture_output=True)
+        if com.returncode != tc.returncode or com.stdout != tc.stdout or com.stderr != tc.stderr:
+            print("[ERROR] Unexpected output")
+            print("  Expected:")
+            print("    return code: %s" % tc.returncode)
+            print("    stdout: \n%s" % tc.stdout.decode("utf-8"))
+            print("    stderr: \n%s" % tc.stderr.decode("utf-8"))
+            print("  Actual:")
+            print("    return code: %s" % com.returncode)
+            print("    stdout: \n%s" % com.stdout.decode("utf-8"))
+            print("    stderr: \n%s" % com.stderr.decode("utf-8"))
+            error = True
+            stats.failed += 1
+
+    else:
+        print('[WARNING] Could not find any input/output data for %s. Ignoring testing. Only checking if it compiles.' % file_path)
+        com = cmd_run_echoed(["./zig-out/bin/PePe", "build", file_path])
+        if com.returncode != 0:
+            error = True
+            stats.failed += 1
+        stats.ignored += 1
+
+    if error:
+        stats.failed_files.append(file_path)
+
 def run_all_test_for_file(file_path: str, stats: RunStats = RunStats()):
-   run_test_for_file(file_path, 'lex', stats)
-   run_test_for_file(file_path, 'parse', stats)
-   run_test_for_file(file_path, 'ir', stats)
+   run_test_for_file_stdout(file_path, 'lex', stats)
+   run_test_for_file_stdout(file_path, 'parse', stats)
+   run_test_for_file_stdout(file_path, 'ir', stats)
+   run_test_for_file_stdout(file_path, 'build', stats)
+   run_test_for_file(file_path, 'run', stats)
 
 def run_test_for_folder(folder: str):
     stats = RunStats()
@@ -157,11 +197,21 @@ def update_input_for_file(file_path: str, argv: List[str]):
                    argv, stdin,
                    tc.returncode, tc.stdout, tc.stderr)
 
-def update_output_for_file(file_path: str, subcommand: str):
+def update_output_for_file_stdout(file_path: str, subcommand: str):
     tc_path = file_path[:-len(PEPE_EXT)] + "." + subcommand + ".bi"
     tc = load_test_case(tc_path) or DEFAULT_TEST_CASE
 
     output = cmd_run_echoed(["./zig-out/bin/PePe", subcommand, file_path, "-stdout", "-s", *tc.argv], input=tc.stdin, capture_output=True)
+    print("[INFO] Saving output to %s" % tc_path)
+    save_test_case(tc_path,
+                   tc.argv, tc.stdin,
+                   output.returncode, output.stdout, output.stderr)
+
+def update_output_for_file(file_path: str, subcommand: str):
+    tc_path = file_path[:-len(PEPE_EXT)] + "." + subcommand + ".bi"
+    tc = load_test_case(tc_path) or DEFAULT_TEST_CASE
+
+    output = cmd_run_echoed(["./zig-out/bin/PePe", subcommand, file_path, "-s", *tc.argv], input=tc.stdin, capture_output=True)
     print("[INFO] Saving output to %s" % tc_path)
     save_test_case(tc_path,
                    tc.argv, tc.stdin,
@@ -173,9 +223,11 @@ def update_output_for_folder(folder: str, subcommand: str):
             update_output_for_file(entry.path, subcommand)
 
 def update_all_output_for_file(file_path: str):
-    update_output_for_file(file_path, "lex")
-    update_output_for_file(file_path, "parse")
-    update_output_for_file(file_path, "ir")
+    update_output_for_file_stdout(file_path, "lex")
+    update_output_for_file_stdout(file_path, "parse")
+    update_output_for_file_stdout(file_path, "ir")
+    update_output_for_file_stdout(file_path, "build")
+    update_output_for_file(file_path, "run")
 
 def update_all_output_for_folder(folder: str):
     for entry in os.scandir(folder):

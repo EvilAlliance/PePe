@@ -67,7 +67,7 @@ fn compile(alloc: std.mem.Allocator, cont: std.ArrayList(u8), name: []u8, argume
     switch (fasmStatus) {
         .Exited => |x| {
             if (x != 0) {
-                std.debug.print("Assembler got error {x}\nstdout:\n{s}stderr:\n{s}", .{ x, stdoutOutput, stderrOutput });
+                std.debug.print("Assembler got error {}\nstdout:\n{s}stderr:\n{s}", .{ x, stdoutOutput, stderrOutput });
 
                 try clean(alloc, name);
 
@@ -75,7 +75,7 @@ fn compile(alloc: std.mem.Allocator, cont: std.ArrayList(u8), name: []u8, argume
             }
         },
         .Signal, .Stopped => |x| {
-            std.debug.print("Assembler got error {x}\nstdout:\n{s}stderr:\n{s}", .{ x, stdoutOutput, stderrOutput });
+            std.debug.print("Assembler got error {}\nstdout:\n{s}stderr:\n{s}", .{ x, stdoutOutput, stderrOutput });
 
             try clean(alloc, name);
 
@@ -179,17 +179,21 @@ pub fn main() !u8 {
         return 0;
     }
 
-    const name = getName(alloc, lexer.absPath, "asm");
-    const r = try compile(alloc, cont, name, arguments);
+    const nameASM = getName(alloc, lexer.absPath, "asm");
+    const r = try compile(alloc, cont, nameASM, arguments);
 
     if (r != 0) return 1;
 
-    try clean(alloc, name);
+    try clean(alloc, nameASM);
 
     if (arguments.run) {
-        var run = std.process.Child.init(&[_][]const u8{}, alloc);
+        const temp = getName(alloc, lexer.absPath, "");
+        const execName = try std.fmt.allocPrint(alloc, "./{s}", .{temp[0 .. temp.len - 1]});
 
-        _ = try run.spawnAndWait();
+        var run = std.process.Child.init(&[_][]const u8{execName}, alloc);
+
+        const status = try run.spawnAndWait();
+        return status.Exited;
     }
 
     return 0;

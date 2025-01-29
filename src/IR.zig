@@ -82,6 +82,20 @@ const SSABlock = struct {
     //args: void,
     body: std.ArrayList(SSAInstruction),
 
+    fn transformBodyToSSA(alloc: std.mem.Allocator, body: *std.ArrayList(SSABlock), ss: Statements, isMain: bool) error{OutOfMemory}!void {
+        var b = SSABlock{
+            .name = "1",
+            .body = std.ArrayList(SSAInstruction).init(alloc),
+        };
+
+        for (ss.items) |s| {
+            const ins = try SSAInstruction.toSSA(alloc, s, isMain);
+            try b.body.append(ins);
+        }
+
+        try body.append(b);
+    }
+
     pub fn toString(self: @This(), cont: *std.ArrayList(u8), d: u64) error{OutOfMemory}!void {
         for (0..d) |_|
             try cont.append(' ');
@@ -119,23 +133,9 @@ pub const SSAFunction = struct {
             .returnType = sf.returnType,
         };
 
-        try transformBodyToSSA(alloc, &f.body, sf.body, std.mem.eql(u8, f.name, "main"));
+        try SSABlock.transformBodyToSSA(alloc, &f.body, sf.body, std.mem.eql(u8, f.name, "main"));
 
         return f;
-    }
-
-    fn transformBodyToSSA(alloc: std.mem.Allocator, body: *std.ArrayList(SSABlock), ss: Statements, isMain: bool) error{OutOfMemory}!void {
-        var b = SSABlock{
-            .name = "1",
-            .body = std.ArrayList(SSAInstruction).init(alloc),
-        };
-
-        for (ss.items) |s| {
-            const ins = try SSAInstruction.toSSA(alloc, s, isMain);
-            try b.body.append(ins);
-        }
-
-        try body.append(b);
     }
 
     pub fn toString(self: @This(), cont: *std.ArrayList(u8), d: u64) error{OutOfMemory}!void {

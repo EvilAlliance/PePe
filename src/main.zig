@@ -26,7 +26,7 @@ fn getName(alloc: std.mem.Allocator, absPath: []const u8, extName: []const u8) [
     return name;
 }
 
-fn writeAll(c: []const u8, arg: Arguments, name: []u8) std.fs.File.WriteError!void {
+fn writeAll(c: []const u8, arg: Arguments, name: []u8) void {
     var file: ?std.fs.File = null;
     defer {
         if (file) |f| f.close();
@@ -45,11 +45,14 @@ fn writeAll(c: []const u8, arg: Arguments, name: []u8) std.fs.File.WriteError!vo
         writer = file.?.writer();
     }
 
-    try writer.writeAll(c);
+    writer.writeAll(c) catch |err| {
+        std.debug.print("{s} Could not write to file ({s}) becuase {}\n", .{ message.Error, arg.path, err });
+        return;
+    };
 }
 
 fn compile(alloc: std.mem.Allocator, cont: std.ArrayList(u8), name: []u8, arguments: Arguments) !u32 {
-    try writeAll(cont.items, arguments, name);
+    writeAll(cont.items, arguments, name);
 
     var fasm = std.process.Child.init(&[_][]const u8{ "fasm", name }, alloc);
 
@@ -121,7 +124,7 @@ pub fn main() !u8 {
         };
 
         const name = getName(alloc, lexer.absPath, "lex");
-        try writeAll(lexContent.items, arguments, name);
+        writeAll(lexContent.items, arguments, name);
 
         return 0;
     }
@@ -144,7 +147,7 @@ pub fn main() !u8 {
         };
 
         const name = getName(alloc, lexer.absPath, "parse");
-        try writeAll(cont.items, arguments, name);
+        writeAll(cont.items, arguments, name);
 
         return 0;
     }
@@ -163,7 +166,7 @@ pub fn main() !u8 {
         };
 
         const name = getName(alloc, lexer.absPath, "ir");
-        try writeAll(cont.items, arguments, name);
+        writeAll(cont.items, arguments, name);
 
         return 0;
     }
@@ -175,7 +178,7 @@ pub fn main() !u8 {
 
     if (arguments.build and arguments.stdout) {
         const name = getName(alloc, lexer.absPath, "asm");
-        try writeAll(cont.items, arguments, name);
+        writeAll(cont.items, arguments, name);
         return 0;
     }
 

@@ -1,8 +1,5 @@
 const std = @import("std");
 const util = @import("Util.zig");
-const general = @import("General.zig");
-
-const message = general.message;
 
 pub const Arguments = struct {
     build: bool = false,
@@ -32,7 +29,7 @@ pub fn getArguments(alloc: std.mem.Allocator) ?Arguments {
     defer args.deinit();
 
     var argsIterator = std.process.ArgIterator.initWithAllocator(alloc) catch {
-        std.debug.print("{s} Out of memory", .{message.Error});
+        std.log.err("Out of memory", .{});
         return;
     };
     defer argsIterator.deinit();
@@ -42,7 +39,7 @@ pub fn getArguments(alloc: std.mem.Allocator) ?Arguments {
     var arg = argsIterator.next();
     while (arg != null) : (arg = argsIterator.next()) {
         args.append(arg.?) catch {
-            std.debug.print("{s} Out of memory", .{message.Error});
+            std.log.err("Out of memory", .{});
             return null;
         };
     }
@@ -51,10 +48,10 @@ pub fn getArguments(alloc: std.mem.Allocator) ?Arguments {
     switch (a) {
         .err => |err| {
             switch (err.err) {
-                error.noSubcommandProvided => std.debug.print("{s} No subcommand provided\n", .{message.Error}),
-                error.noFilePathProvided => std.debug.print("{s} No file provided\n", .{message.Error}),
-                error.unknownSubcommand => std.debug.print("{s} Unknown subcommand {s}\n", .{ message.Error, err.payload.? }),
-                error.unknownArgument => std.debug.print("{s} unknown argument {s}\n", .{ message.Error, err.payload.? }),
+                error.noSubcommandProvided => std.log.err("No subcommand provided\n", .{}),
+                error.noFilePathProvided => std.log.err("No file provided\n", .{}),
+                error.unknownSubcommand => std.log.err("Unknown subcommand {s}\n", .{err.payload.?}),
+                error.unknownArgument => std.log.err("unknown argument {s}\n", .{err.payload.?}),
                 else => unreachable,
             }
             return null;

@@ -1,10 +1,8 @@
 const std = @import("std");
 const util = @import("Util.zig");
-const general = @import("General.zig");
 
 const Arguments = @import("ParseArgs.zig").Arguments;
 
-const message = general.message;
 const Allocator = std.mem.Allocator;
 const print = std.debug.print;
 const assert = std.debug.assert;
@@ -211,10 +209,10 @@ pub const Lexer = struct {
 pub fn lex(alloc: Allocator, arguments: Arguments) ?Lexer {
     const lexer = Lexer.init(alloc, arguments.path) catch |err| {
         switch (err) {
-            error.couldNotOpenFile => std.debug.print("{s} Could not open file: {s}\n", .{ message.Error, arguments.path }),
-            error.couldNotReadFile => std.debug.print("{s} Could not read file: {s}]n", .{ message.Error, arguments.path }),
-            error.couldNotGetFileSize => std.debug.print("{s} Could not get file ({s}) size\n", .{ message.Error, arguments.path }),
-            error.couldNotGetAbsolutePath => std.debug.print("{s} Could not get absolute path of file ({s})\n", .{ message.Error, arguments.path }),
+            error.couldNotOpenFile => std.log.err("Could not open file: {s}\n", .{arguments.path}),
+            error.couldNotReadFile => std.log.err("Could not read file: {s}]n", .{arguments.path}),
+            error.couldNotGetFileSize => std.log.err("Could not get file ({s}) size\n", .{arguments.path}),
+            error.couldNotGetAbsolutePath => std.log.err("Could not get absolute path of file ({s})\n", .{arguments.path}),
         }
         return null;
     };

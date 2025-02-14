@@ -18,11 +18,3 @@ pub fn usage() void {
         \\
     , .{});
 }
-
-const Message = struct {
-    Error: []const u8 = "    [ERROR]:",
-    Warning: []const u8 = "    [WARNING]:",
-    Info: []const u8 = "    [Info]:",
-};
-
-pub const message = Message{};

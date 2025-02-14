@@ -2,7 +2,7 @@
 :b stdin 0
 
 :i returncode 0
-:b stdout 110
+:b stdout 105
 Function:
   Name: main
   Return Type: u8
@@ -10,7 +10,7 @@ Function:
     Block:
       Name: 1
       Body:
-        call @exit(0)
+        return 0
 
 :b stderr 0
 

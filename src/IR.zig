@@ -13,7 +13,7 @@ pub const SSAIntrinsic = struct {
     name: []const u8,
     args: std.ArrayList(Expression),
 
-    fn init(alloc: std.mem.Allocator, name: []const u8) SSAIntrinsic {
+    fn init(alloc: std.mem.Allocator, name: []const u8) @This() {
         return SSAIntrinsic{
             .name = name,
             .args = std.ArrayList(Expression).init(alloc),
@@ -39,26 +39,39 @@ pub const SSAIntrinsic = struct {
 
         try cont.append('\n');
     }
+};
 
-    pub fn emitFasm(self: @This(), cont: *std.ArrayList(u8)) !void {
-        const fnExit = IntrinsicFn.get(self.name) orelse unreachable;
-        try fnExit(cont, self);
+const SSAReturn = struct {
+    expr: Parser.Expression,
+
+    fn init(expr: Parser.Expression) @This() {
+        return @This(){
+            .expr = expr,
+        };
+    }
+
+    pub fn toString(self: @This(), cont: *std.ArrayList(u8), d: u64) error{OutOfMemory}!void {
+        for (0..d) |_|
+            try cont.append(' ');
+
+        try cont.appendSlice("return ");
+
+        try cont.appendSlice(self.expr);
+
+        try cont.append('\n');
     }
 };
 
 const SSAInstruction = union(enum) {
     intrinsic: SSAIntrinsic,
+    ret: SSAReturn,
 
-    fn toSSA(alloc: std.mem.Allocator, s: Statement, isMain: bool) error{OutOfMemory}!SSAInstruction {
+    fn toSSA(s: Statement) error{OutOfMemory}!SSAInstruction {
         switch (s) {
             .ret => |ret| {
-                if (isMain) {
-                    var ins = SSAIntrinsic.init(alloc, "@exit");
-                    try ins.args.append(ret.expr);
-                    return SSAInstruction{
-                        .intrinsic = ins,
-                    };
-                } else unreachable;
+                return SSAInstruction{
+                    .ret = SSAReturn.init(ret.expr),
+                };
             },
             .func => |_| unreachable,
         }
@@ -67,12 +80,7 @@ const SSAInstruction = union(enum) {
     pub fn toString(self: @This(), cont: *std.ArrayList(u8), d: u64) error{OutOfMemory}!void {
         switch (self) {
             .intrinsic => |in| try in.toString(cont, d),
-        }
-    }
-
-    pub fn emitFasm(self: @This(), cont: *std.ArrayList(u8)) !void {
-        switch (self) {
-            .intrinsic => |in| try in.emitFasm(cont),
+            .ret => |in| try in.toString(cont, d),
         }
     }
 };
@@ -82,14 +90,14 @@ const SSABlock = struct {
     //args: void,
     body: std.ArrayList(SSAInstruction),
 
-    fn transformBodyToSSA(alloc: std.mem.Allocator, body: *std.ArrayList(SSABlock), ss: Statements, isMain: bool) error{OutOfMemory}!void {
+    fn transformBodyToSSA(alloc: std.mem.Allocator, body: *std.ArrayList(SSABlock), ss: Statements) error{OutOfMemory}!void {
         var b = SSABlock{
             .name = "1",
             .body = std.ArrayList(SSAInstruction).init(alloc),
         };
 
         for (ss.items) |s| {
-            const ins = try SSAInstruction.toSSA(alloc, s, isMain);
+            const ins = try SSAInstruction.toSSA(s);
             try b.body.append(ins);
         }
 
@@ -133,7 +141,7 @@ pub const SSAFunction = struct {
             .returnType = sf.returnType,
         };
 
-        try SSABlock.transformBodyToSSA(alloc, &f.body, sf.body, std.mem.eql(u8, f.name, "main"));
+        try SSABlock.transformBodyToSSA(alloc, &f.body, sf.body);
 
         return f;
     }
@@ -187,7 +195,7 @@ pub const IR = struct {
     ssa: SSA,
     alloc: std.mem.Allocator,
 
-    pub fn init(p: *Program, alloc: std.mem.Allocator) IR {
+    pub fn init(p: *Program, alloc: std.mem.Allocator) @This() {
         return IR{
             .alloc = alloc,
             .program = p,

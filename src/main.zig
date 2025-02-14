@@ -90,16 +90,12 @@ pub fn main() !u8 {
 
     const alloc = arena.allocator();
 
-    std.log.info("Parsing Arguments", .{});
     const arguments = getArguments(alloc) orelse {
         usage();
         return 1;
     };
 
     silence = arguments.silence;
-
-    if (arguments.bench)
-        std.log.info("Finished in {}", .{std.fmt.fmtDuration(timer.lap())});
 
     _ = arena.reset(std.heap.ArenaAllocator.ResetMode.retain_capacity);
 

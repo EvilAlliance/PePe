@@ -2,7 +2,6 @@ const std = @import("std");
 const util = @import("Util.zig");
 const Lexer = @import("Lexer.zig");
 const ParseArguments = @import("ParseArgs.zig");
-const codeGen = @import("CodeGen.zig").codeGen;
 
 const usage = @import("General.zig").usage;
 const message = @import("General.zig").message;
@@ -49,54 +48,6 @@ fn writeAll(c: []const u8, arg: Arguments, name: []u8) void {
         std.debug.print("{s} Could not write to file ({s}) becuase {}\n", .{ message.Error, arg.path, err });
         return;
     };
-}
-
-fn compile(alloc: std.mem.Allocator, cont: std.ArrayList(u8), name: []u8, arguments: Arguments) !u32 {
-    writeAll(cont.items, arguments, name);
-
-    var fasm = std.process.Child.init(&[_][]const u8{ "fasm", name }, alloc);
-
-    fasm.stdout_behavior = .Pipe;
-    fasm.stderr_behavior = .Pipe;
-
-    // Spawn the process and capture stdout and stderr
-    try fasm.spawn();
-
-    const stdoutOutput: []u8 = try fasm.stdout.?.reader().readAllAlloc(alloc, std.math.maxInt(u64));
-    const stderrOutput: []u8 = try fasm.stderr.?.reader().readAllAlloc(alloc, std.math.maxInt(u64));
-
-    const fasmStatus = try fasm.wait();
-
-    switch (fasmStatus) {
-        .Exited => |x| {
-            if (x != 0) {
-                std.debug.print("Assembler got error {}\nstdout:\n{s}stderr:\n{s}", .{ x, stdoutOutput, stderrOutput });
-
-                try clean(alloc, name);
-
-                return x;
-            }
-        },
-        .Signal, .Stopped => |x| {
-            std.debug.print("Assembler got error {}\nstdout:\n{s}stderr:\n{s}", .{ x, stdoutOutput, stderrOutput });
-
-            try clean(alloc, name);
-
-            return x;
-        },
-        .Unknown => unreachable,
-    }
-
-    var exec = std.process.Child.init(&[_][]const u8{ "chmod", "+x", name[0..std.mem.lastIndexOf(u8, name, ".").?] }, alloc);
-    _ = try exec.spawnAndWait();
-
-    return 0;
-}
-
-fn clean(alloc: std.mem.Allocator, name: []u8) !void {
-    var rm = std.process.Child.init(&[_][]const u8{ "rm", name }, alloc);
-
-    _ = try rm.spawnAndWait();
 }
 
 pub fn main() !u8 {
@@ -169,34 +120,6 @@ pub fn main() !u8 {
         writeAll(cont.items, arguments, name);
 
         return 0;
-    }
-
-    const cont = codeGen(alloc, ir.ssa) catch {
-        std.debug.print("{s} Out of memory", .{message.Error});
-        return 1;
-    };
-
-    if (arguments.build and arguments.stdout) {
-        const name = getName(alloc, lexer.absPath, "asm");
-        writeAll(cont.items, arguments, name);
-        return 0;
-    }
-
-    const nameASM = getName(alloc, lexer.absPath, "asm");
-    const r = try compile(alloc, cont, nameASM, arguments);
-
-    if (r != 0) return 1;
-
-    try clean(alloc, nameASM);
-
-    if (arguments.run) {
-        const temp = getName(alloc, lexer.absPath, "");
-        const execName = try std.fmt.allocPrint(alloc, "./{s}", .{temp[0 .. temp.len - 1]});
-
-        var run = std.process.Child.init(&[_][]const u8{execName}, alloc);
-
-        const status = try run.spawnAndWait();
-        return status.Exited;
     }
 
     return 0;

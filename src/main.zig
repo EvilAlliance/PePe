@@ -2,7 +2,6 @@ const std = @import("std");
 const util = @import("Util.zig");
 const Lexer = @import("Lexer.zig");
 const ParseArguments = @import("ParseArgs.zig");
-const codeGen = @import("CodeGen.zig").codeGen;
 
 const usage = @import("General.zig").usage;
 const message = @import("General.zig").message;

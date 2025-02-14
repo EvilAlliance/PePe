@@ -4,7 +4,6 @@ const Lexer = @import("Lexer.zig");
 const ParseArguments = @import("ParseArgs.zig");
 
 const usage = @import("General.zig").usage;
-const message = @import("General.zig").message;
 
 const Result = util.Result;
 
@@ -14,11 +13,44 @@ const lex = Lexer.lex;
 const Parser = @import("Parser.zig");
 const IR = @import("IR.zig").IR;
 
+var silence = false;
+
+pub const std_options = .{
+    .logFn = log,
+};
+
+fn log(
+    comptime message_level: std.log.Level,
+    comptime scope: @TypeOf(.EnumLiteral),
+    comptime format: []const u8,
+    args: anytype,
+) void {
+    if (silence and message_level != .err) return;
+    const level_txt = comptime switch (message_level) {
+        .info => "[INFO]",
+        .warn => "[WARNING]",
+        .err => "[ERROR]",
+        .debug => "[DEBUG]",
+    };
+
+    const prefix2 = if (scope == .default) " " else "(" ++ @tagName(scope) ++ "): ";
+    const stderr = std.io.getStdErr().writer();
+    var bw = std.io.bufferedWriter(stderr);
+    const writer = bw.writer();
+
+    std.debug.lockStdErr();
+    defer std.debug.unlockStdErr();
+    nosuspend {
+        writer.print(level_txt ++ prefix2 ++ format ++ "\n", args) catch return;
+        bw.flush() catch return;
+    }
+}
+
 fn getName(alloc: std.mem.Allocator, absPath: []const u8, extName: []const u8) []u8 {
     const fileName = std.mem.lastIndexOf(u8, absPath, "/").?;
     const ext = std.mem.lastIndexOf(u8, absPath, ".").?;
     const name = std.fmt.allocPrint(alloc, "{s}.{s}", .{ absPath[fileName + 1 .. ext], extName }) catch {
-        std.debug.print("{s} Name is to large\n", .{message.Error});
+        std.log.err("Name is to large\n", .{});
         return "";
     };
 
@@ -37,7 +69,7 @@ fn writeAll(c: []const u8, arg: Arguments, name: []u8) void {
         writer = std.io.getStdOut().writer();
     } else {
         file = std.fs.cwd().createFile(name, .{}) catch |err| {
-            std.debug.print("{s} Could not open file ({s}) becuase {}\n", .{ message.Error, arg.path, err });
+            std.log.err("Could not open file ({s}) becuase {}\n", .{ arg.path, err });
             return;
         };
 
@@ -45,24 +77,33 @@ fn writeAll(c: []const u8, arg: Arguments, name: []u8) void {
     }
 
     writer.writeAll(c) catch |err| {
-        std.debug.print("{s} Could not write to file ({s}) becuase {}\n", .{ message.Error, arg.path, err });
+        std.log.err("Could not write to file ({s}) becuase {}\n", .{ arg.path, err });
         return;
     };
 }
 
 pub fn main() !u8 {
+    var timer = std.time.Timer.start() catch unreachable;
+
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
 
     const alloc = arena.allocator();
 
+    std.log.info("Parsing Arguments", .{});
     const arguments = getArguments(alloc) orelse {
         usage();
         return 1;
     };
 
+    silence = arguments.silence;
+
+    if (arguments.bench)
+        std.log.info("Finished in {}", .{std.fmt.fmtDuration(timer.lap())});
+
     _ = arena.reset(std.heap.ArenaAllocator.ResetMode.retain_capacity);
 
+    std.log.info("Lexing and Parsing", .{});
     var lexer = lex(alloc, arguments) orelse {
         usage();
         return 1;
@@ -70,7 +111,7 @@ pub fn main() !u8 {
 
     if (arguments.lex) {
         const lexContent = lexer.toString(alloc) catch {
-            std.debug.print("{s} Out of memory", .{message.Error});
+            std.log.err("Out of memory", .{});
             return 1;
         };
 
@@ -82,7 +123,7 @@ pub fn main() !u8 {
 
     var parser = Parser.Parser.init(alloc, &lexer);
     const unexpected = parser.parse() catch {
-        std.debug.print("{s} Out of memory", .{message.Error});
+        std.log.err("Out of memory", .{});
         return 1;
     };
 
@@ -91,9 +132,12 @@ pub fn main() !u8 {
         return 1;
     }
 
+    if (arguments.bench)
+        std.log.info("Finished in {}", .{std.fmt.fmtDuration(timer.lap())});
+
     if (arguments.parse) {
         const cont = parser.toString(alloc) catch {
-            std.debug.print("{s} Out of memory", .{message.Error});
+            std.log.err("Out of memory", .{});
             return 1;
         };
 
@@ -103,16 +147,20 @@ pub fn main() !u8 {
         return 0;
     }
 
+    std.log.info("Intermediate Represetation", .{});
     var ir = IR.init(&parser.program, alloc);
 
     ir.toIR() catch {
-        std.debug.print("{s} Out of memory", .{message.Error});
+        std.log.err("Out of memory", .{});
         return 1;
     };
 
+    if (arguments.bench)
+        std.log.info("Finished in {}", .{std.fmt.fmtDuration(timer.lap())});
+
     if (arguments.ir) {
         const cont = ir.toString(alloc) catch {
-            std.debug.print("{s} Out of memory", .{message.Error});
+            std.log.err("Out of memory", .{});
             return 1;
         };
 

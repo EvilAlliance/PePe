@@ -2,6 +2,7 @@ const std = @import("std");
 const util = @import("Util.zig");
 const Lexer = @import("Lexer.zig");
 const ParseArguments = @import("ParseArgs.zig");
+const typeCheck = @import("TypeCheck.zig").typeCheck;
 
 const usage = @import("General.zig").usage;
 
@@ -143,11 +144,21 @@ pub fn main() !u8 {
         return 0;
     }
 
+    std.log.info("Type Checking", .{});
+
+    if (typeCheck(parser.program, alloc) catch {
+        std.log.err("out of memory", .{});
+        return 1;
+    }) return 1;
+
+    if (arguments.bench)
+        std.log.info("Finished in {}", .{std.fmt.fmtDuration(timer.lap())});
+
     std.log.info("Intermediate Represetation", .{});
     var ir = IR.init(&parser.program, alloc);
 
     ir.toIR() catch {
-        std.log.err("Out of memory", .{});
+        std.log.err("out of memory", .{});
         return 1;
     };
 

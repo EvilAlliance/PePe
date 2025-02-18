@@ -6,6 +6,7 @@ const StatementFunc = Parser.StatementFunc;
 const Statements = Parser.Statements;
 const Statement = Parser.Statement;
 const Expression = Parser.Expression;
+const Primitive = Parser.Primitive;
 
 const IntrinsicFn = @import("./Intrinsics.zig").IntrinsicFn;
 
@@ -132,7 +133,7 @@ pub const SSAFunction = struct {
     name: []const u8,
     //args: void,
     body: std.ArrayList(SSABlock),
-    returnType: []const u8,
+    returnType: Primitive,
 
     fn transformToSSA(alloc: std.mem.Allocator, sf: StatementFunc) error{OutOfMemory}!SSAFunction {
         var f = SSAFunction{
@@ -163,7 +164,7 @@ pub const SSAFunction = struct {
             try cont.append(' ');
 
         try cont.appendSlice("Return Type: ");
-        try cont.appendSlice(self.returnType);
+        try self.returnType.toString(cont);
         try cont.append('\n');
 
         for (0..d + 2) |_|

@@ -8,6 +8,7 @@ const print = std.debug.print;
 const assert = std.debug.assert;
 
 pub const Location = struct {
+    path: []const u8,
     row: u64,
     col: u64,
 };
@@ -27,10 +28,7 @@ pub const TokenType = enum {
 
     pub fn isIden(str: []const u8) bool {
         assert(str.len > 0);
-        if (('A' > str[0] or str[0] > 'Z') and
-            ('a' > str[0] or str[0] > 'z')) return false;
-
-        return true;
+        return '0' > str[0] or str[0] > '9';
     }
 
     pub fn isNumber(str: []const u8) bool {
@@ -40,6 +38,11 @@ pub const TokenType = enum {
         }
 
         return true;
+    }
+
+    pub fn isType(str: []const u8) bool {
+        _ = str;
+        return false;
     }
 
     pub fn get(str: []const u8) TokenType {
@@ -112,8 +115,8 @@ pub const Lexer = struct {
     path: []const u8,
     absPath: []const u8,
     content: []const u8,
-    prevLoc: Location = Location{ .row = 1, .col = 1 },
-    currentLoc: Location = Location{ .row = 1, .col = 1 },
+    prevLoc: Location = Location{ .row = 1, .col = 1, .path = "" },
+    currentLoc: Location = Location{ .row = 1, .col = 1, .path = "" },
     index: usize = 0,
     peeked: usize = 0,
     finished: bool = false,
@@ -198,11 +201,16 @@ pub const Lexer = struct {
         const max_bytes: usize = @intCast(file_size);
         const c = f.readToEndAlloc(alloc, max_bytes) catch return error.couldNotReadFile;
 
-        return Lexer{
+        var l = Lexer{
             .content = c,
             .absPath = abspath,
             .path = path,
         };
+
+        l.prevLoc.path = path;
+        l.currentLoc.path = path;
+
+        return l;
     }
 };
 

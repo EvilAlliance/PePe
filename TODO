@@ -1,3 +1,4 @@
+TODO: Rework TypeCheck because is horrible
 TODO: Deal with all try or error in main so that main returns u8 instead of !u8
 TODO: Extract parseExpression to the respective struct when Expression is developed
 TODO: Two arena allocator so it is possible to clean memory and a different allocator only for the file

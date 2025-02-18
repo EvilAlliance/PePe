@@ -7,7 +7,7 @@ Function:
   Name: main
   Return Type: u8
   Body:
-    Return: 0
+    Return: 1
 
 :b stderr 0
 

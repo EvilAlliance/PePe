@@ -10,19 +10,122 @@ const Allocator = std.mem.Allocator;
 const TokenType = LEXER.TokenType;
 const Token = LEXER.Token;
 const Lexer = LEXER.Lexer;
+const Location = LEXER.Location;
 
 const Result = util.Result;
 
 pub const Expression = []const u8;
 
+pub const Primitive = struct {
+    type: enum {
+        unsigned,
+        signed,
+        float,
+        bool,
+        void,
+    },
+
+    size: u8,
+
+    pub fn getType(str: []const u8) @This() {
+        var t: @This() = undefined;
+
+        if (str[0] == 'i' or str[0] == 'u' or str[0] == 'f') {
+            assert(str.len > 1 and str.len < 4);
+            switch (str[0]) {
+                'i' => t.type = .signed,
+                'u' => t.type = .unsigned,
+                'f' => t.type = .float,
+                else => unreachable,
+            }
+
+            t.size = std.fmt.parseUnsigned(u8, str[1..], 10) catch unreachable;
+        } else if (std.mem.eql(u8, str, "void")) {
+            t.size = 0;
+            t.type = .void;
+        } else if (std.mem.eql(u8, str, "bool")) {
+            t.size = 1;
+            t.type = .bool;
+        }
+
+        return t;
+    }
+
+    pub fn possibleValue(self: @This(), str: []const u8) bool {
+        switch (self.type) {
+            .void => return str.len == 0,
+            .bool => {
+                if (str.len == 1) {
+                    return str[0] == '0' or str[0] == '1';
+                }
+                return std.mem.eql(u8, str, "false") or std.mem.eql(u8, str, "true");
+            },
+            .signed => {
+                if (self.size == 8) {
+                    _ = std.fmt.parseInt(i8, str, 10) catch return false;
+                } else if (self.size == 16) {
+                    _ = std.fmt.parseInt(i16, str, 10) catch return false;
+                } else if (self.size == 32) {
+                    _ = std.fmt.parseInt(i32, str, 10) catch return false;
+                } else if (self.size == 64) {
+                    _ = std.fmt.parseInt(i64, str, 10) catch return false;
+                }
+                return true;
+            },
+            .unsigned => {
+                if (self.size == 8) {
+                    _ = std.fmt.parseUnsigned(u8, str, 10) catch return false;
+                } else if (self.size == 16) {
+                    _ = std.fmt.parseUnsigned(u16, str, 10) catch return false;
+                } else if (self.size == 32) {
+                    _ = std.fmt.parseUnsigned(u32, str, 10) catch return false;
+                } else if (self.size == 64) {
+                    _ = std.fmt.parseUnsigned(u64, str, 10) catch return false;
+                }
+                return true;
+            },
+            .float => {
+                if (self.size == 32) {
+                    _ = std.fmt.parseFloat(f32, str) catch return false;
+                } else if (self.size == 64) {
+                    _ = std.fmt.parseFloat(f64, str) catch return false;
+                }
+                return true;
+            },
+        }
+    }
+
+    pub fn toString(self: @This(), cont: *std.ArrayList(u8)) error{OutOfMemory}!void {
+        const size = try std.fmt.allocPrint(cont.allocator, "{}", .{self.size});
+        try switch (self.type) {
+            .void => cont.appendSlice("void"),
+            .bool => cont.appendSlice("bool"),
+            .float => {
+                try cont.append('f');
+                try cont.appendSlice(size);
+            },
+            .signed => {
+                try cont.append('i');
+                try cont.appendSlice(size);
+            },
+            .unsigned => {
+                try cont.append('u');
+                try cont.appendSlice(size);
+            },
+        };
+    }
+};
+
 const StatementReturn = struct {
     expr: Expression,
+    loc: Location,
 
     fn parse(p: *Parser) Result(StatementReturn, UnexpectedToken) {
         const r = Result(StatementReturn, UnexpectedToken);
 
         const retToken = p.l.peek();
         assert(retToken.type == TokenType.ret);
+        const retLoc = retToken.loc;
 
         _ = p.l.pop();
 
@@ -32,7 +135,10 @@ const StatementReturn = struct {
             .ok => {},
         }
         const expr = result.ok;
-        const ret = StatementReturn{ .expr = expr };
+        const ret = StatementReturn{
+            .expr = expr,
+            .loc = retLoc,
+        };
 
         const separator = p.l.pop();
         const unexpected = Parser.expect(separator, TokenType.semicolon);
@@ -55,7 +161,8 @@ pub const StatementFunc = struct {
     name: []const u8,
     //args: void,
     body: Statements,
-    returnType: []const u8,
+    returnType: Primitive,
+    loc: Location,
 
     pub fn parse(p: *Parser) error{OutOfMemory}!Result(@This(), UnexpectedToken) {
         const r = Result(@This(), UnexpectedToken);
@@ -64,6 +171,7 @@ pub const StatementFunc = struct {
 
         const func = p.l.peek();
         assert(func.type == TokenType.func);
+        const funcLoc = func.loc;
 
         _ = p.l.pop();
 
@@ -81,8 +189,8 @@ pub const StatementFunc = struct {
         unexpected = Parser.expect(separator, TokenType.closeParen);
         if (unexpected != null) return r.Err(unexpected.?);
 
-        const t = p.l.pop();
-        unexpected = Parser.expect(t, TokenType.iden);
+        const ret = p.l.pop();
+        unexpected = Parser.expect(ret, TokenType.iden);
         if (unexpected != null) return r.Err(unexpected.?);
 
         separator = p.l.pop();
@@ -102,8 +210,9 @@ pub const StatementFunc = struct {
         return r.Ok(StatementFunc{
             .name = name.str,
             // .args = void,
-            .returnType = t.str,
+            .returnType = Primitive.getType(ret.str),
             .body = state.ok,
+            .loc = funcLoc,
         });
     }
 
@@ -142,7 +251,7 @@ pub const StatementFunc = struct {
             try cont.append(' ');
 
         try cont.appendSlice("Return Type: ");
-        try cont.appendSlice(self.returnType);
+        try self.returnType.toString(cont);
         try cont.append('\n');
 
         for (0..d + 2) |_|

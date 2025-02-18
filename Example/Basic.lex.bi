@@ -10,7 +10,7 @@
 ./Example/Basic.pp:1:11 u8 (iden)
 ./Example/Basic.pp:1:13 { (openBrace)
 ./Example/Basic.pp:2:5 return (ret)
-./Example/Basic.pp:2:12 0 (numberLiteral)
+./Example/Basic.pp:2:12 1 (numberLiteral)
 ./Example/Basic.pp:2:13 ; (semicolon)
 ./Example/Basic.pp:3:1 } (closeBrace)
 ./Example/Basic.pp:3:2  (EOF)

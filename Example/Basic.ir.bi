@@ -10,7 +10,7 @@ Function:
     Block:
       Name: 1
       Body:
-        return 0
+        return 1
 
 :b stderr 0
 

@@ -42,7 +42,7 @@ pub const SSAIntrinsic = struct {
     }
 };
 
-const SSAReturn = struct {
+pub const SSAReturn = struct {
     expr: Parser.Expression,
 
     fn init(expr: Parser.Expression) @This() {
@@ -63,7 +63,7 @@ const SSAReturn = struct {
     }
 };
 
-const SSAInstruction = union(enum) {
+pub const SSAInstruction = union(enum) {
     intrinsic: SSAIntrinsic,
     ret: SSAReturn,
 

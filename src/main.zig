@@ -3,6 +3,7 @@ const util = @import("Util.zig");
 const Lexer = @import("Lexer.zig");
 const ParseArguments = @import("ParseArgs.zig");
 const typeCheck = @import("TypeCheck.zig").typeCheck;
+const codeGen = @import("CodeGen.zig").codeGen;
 
 const usage = @import("General.zig").usage;
 
@@ -50,12 +51,16 @@ fn log(
 fn getName(alloc: std.mem.Allocator, absPath: []const u8, extName: []const u8) []u8 {
     const fileName = std.mem.lastIndexOf(u8, absPath, "/").?;
     const ext = std.mem.lastIndexOf(u8, absPath, ".").?;
-    const name = std.fmt.allocPrint(alloc, "{s}.{s}", .{ absPath[fileName + 1 .. ext], extName }) catch {
-        std.log.err("Name is to large\n", .{});
-        return "";
-    };
-
-    return name;
+    if (extName.len > 0)
+        return std.fmt.allocPrint(alloc, "{s}.{s}{s}", .{ absPath[fileName + 1 .. ext], extName, [1]u8{0} }) catch {
+            std.log.err("Name is to large\n", .{});
+            return "";
+        }
+    else
+        return std.fmt.allocPrint(alloc, "{s}{s}", .{ absPath[fileName + 1 .. ext], [1]u8{0} }) catch {
+            std.log.err("Name is to large\n", .{});
+            return "";
+        };
 }
 
 fn writeAll(c: []const u8, arg: Arguments, name: []u8) void {
@@ -83,7 +88,7 @@ fn writeAll(c: []const u8, arg: Arguments, name: []u8) void {
     };
 }
 
-pub fn main() !u8 {
+pub fn main() u8 {
     var timer = std.time.Timer.start() catch unreachable;
 
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
@@ -99,6 +104,11 @@ pub fn main() !u8 {
     silence = arguments.silence;
 
     _ = arena.reset(std.heap.ArenaAllocator.ResetMode.retain_capacity);
+
+    if (arguments.run and arguments.stdout) {
+        std.log.err("Subcommand run can't be use with argument stdout", .{});
+        return 1;
+    }
 
     std.log.info("Lexing and Parsing", .{});
     var lexer = lex(alloc, arguments) orelse {
@@ -176,6 +186,18 @@ pub fn main() !u8 {
 
         return 0;
     }
+
+    std.log.info("CodeGen", .{});
+
+    const path = getName(alloc, lexer.absPath, "");
+    codeGen(alloc, ir.ssa, arguments.stdout, path) catch {
+        std.log.err("Out of memory", .{});
+        return 1;
+    };
+    if (arguments.bench)
+        std.log.info("Finished in {}", .{std.fmt.fmtDuration(timer.lap())});
+
+    if (arguments.stdout) return 0;
 
     return 0;
 }

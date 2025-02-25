@@ -73,6 +73,12 @@ pub const Module = struct {
         return m;
     }
 
+    pub inline fn createForHost() Module {
+        var m: Module = undefined;
+        m.m = tb.moduleCreateForHost();
+        return m;
+    }
+
     pub inline fn destroy(self: @This()) void {
         tb.moduleDestroy(self.m);
     }
@@ -149,6 +155,10 @@ pub const Function = struct {
 
     pub inline fn opt(self: @This(), ws: ?Worklist, perserve_types: bool) bool {
         return tb.opt(self.f, if (ws != null) ws.?.ws else null, perserve_types);
+    }
+
+    pub inline fn print(self: @This()) void {
+        tb.print(self.f);
     }
 };
 

@@ -8,12 +8,15 @@ const codeGen = @import("CodeGen.zig").codeGen;
 const usage = @import("General.zig").usage;
 
 const Result = util.Result;
+const Commnad = util.Command;
 
 const getArguments = ParseArguments.getArguments;
 const Arguments = ParseArguments.Arguments;
 const lex = Lexer.lex;
 const Parser = @import("Parser.zig");
 const IR = @import("IR.zig").IR;
+
+const tb = @import("./libs/tb/tb.zig");
 
 var silence = false;
 
@@ -167,7 +170,9 @@ pub fn main() u8 {
     std.log.info("Intermediate Represetation", .{});
     var ir = IR.init(&parser.program, alloc);
 
-    ir.toIR() catch {
+    const m = tb.Module.create(tb.Arch.X86_64, tb.System.LINUX, arguments.run);
+
+    ir.toIR(m) catch {
         std.log.err("out of memory", .{});
         return 1;
     };
@@ -190,14 +195,59 @@ pub fn main() u8 {
     std.log.info("CodeGen", .{});
 
     const path = getName(alloc, lexer.absPath, "");
-    codeGen(alloc, ir.ssa, arguments.stdout, path) catch {
+
+    var a = tb.Arena.create("For main Module");
+    defer a.destroy();
+
+    codeGen(m, a, ir.ssa) catch {
         std.log.err("Out of memory", .{});
         return 1;
     };
+
     if (arguments.bench)
         std.log.info("Finished in {}", .{std.fmt.fmtDuration(timer.lap())});
 
-    if (arguments.stdout) return 0;
+    if (arguments.stdout) {
+        var funcsIterator = ir.ssa.funcs.valueIterator();
+        var func = funcsIterator.next();
+        while (func != null) : (func = funcsIterator.next()) {
+            func.?.func.print();
+        }
+        return 0;
+    }
+
+    {
+        const ws = tb.Worklist.alloc();
+        defer ws.free();
+        var funcIterator = ir.ssa.funcs.iterator();
+        var func = funcIterator.next();
+        while (func != null) : (func = funcIterator.next()) {
+            var feature: tb.FeatureSet = undefined;
+            _ = func.?.value_ptr.func.codeGen(ws, a, &feature, false);
+        }
+
+        const eb = m.objectExport(a, tb.DebugFormat.NONE);
+        if (!eb.toFile(("mainModule.o"))) {
+            std.log.err("Could not export object to file", .{});
+            return 1;
+        }
+
+        var cmdObj = Commnad.init(alloc, &[_][]const u8{ "ld", "mainModule.o", "-o", path }, false);
+        const resultObj = cmdObj.execute() catch {
+            std.log.err("Could not link the generated object file", .{});
+            return 1;
+        };
+
+        var cmdClean = Commnad.init(alloc, &[_][]const u8{ "rm", "mainModule.o" }, false);
+        _ = cmdClean.execute() catch {
+            std.log.err("Could not clean the generated object file", .{});
+        };
+
+        switch (resultObj) {
+            .Exited => |x| if (x != 0) std.log.err("Could not link generated object file", .{}),
+            else => std.log.err("Could not link generated object file", .{}),
+        }
+    }
 
     return 0;
 }

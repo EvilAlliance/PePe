@@ -10,6 +10,10 @@ const Primitive = Parser.Primitive;
 
 const IntrinsicFn = @import("./Intrinsics.zig").IntrinsicFn;
 
+const tb = @import("./libs/tb/tb.zig");
+
+const tbHelper = @import("TBHelper.zig");
+
 pub const SSAIntrinsic = struct {
     name: []const u8,
     args: std.ArrayList(Expression),
@@ -42,7 +46,7 @@ pub const SSAIntrinsic = struct {
     }
 };
 
-const SSAReturn = struct {
+pub const SSAReturn = struct {
     expr: Parser.Expression,
 
     fn init(expr: Parser.Expression) @This() {
@@ -63,7 +67,7 @@ const SSAReturn = struct {
     }
 };
 
-const SSAInstruction = union(enum) {
+pub const SSAInstruction = union(enum) {
     intrinsic: SSAIntrinsic,
     ret: SSAReturn,
 
@@ -134,12 +138,18 @@ pub const SSAFunction = struct {
     //args: void,
     body: std.ArrayList(SSABlock),
     returnType: Primitive,
+    func: tb.Function,
+    externSymbol: *tb.Symbol,
+    prototype: *tb.FunctionPrototype,
 
-    fn transformToSSA(alloc: std.mem.Allocator, sf: StatementFunc) error{OutOfMemory}!SSAFunction {
+    fn transformToSSA(alloc: std.mem.Allocator, sf: StatementFunc, m: tb.Module) error{OutOfMemory}!SSAFunction {
         var f = SSAFunction{
             .name = sf.name,
             .body = std.ArrayList(SSABlock).init(alloc),
             .returnType = sf.returnType,
+            .func = m.functionCreate(sf.name, tb.Linkage.PRIVATE),
+            .externSymbol = m.externCreate(sf.name, tb.ExternalType.SO_LOCAL),
+            .prototype = tbHelper.getPrototype(m, sf.returnType),
         };
 
         try SSABlock.transformBodyToSSA(alloc, &f.body, sf.body);
@@ -206,11 +216,12 @@ pub const IR = struct {
         };
     }
 
-    pub fn toIR(self: *IR) error{OutOfMemory}!void {
+    pub fn toIR(self: *IR, m: tb.Module) error{OutOfMemory}!void {
         var it = self.program.funcs.iterator();
         var c = it.next();
         while (c != null) : (c = it.next()) {
-            const f = try SSAFunction.transformToSSA(self.alloc, c.?.value_ptr.*);
+            const func = c.?.value_ptr.*;
+            const f = try SSAFunction.transformToSSA(self.alloc, func, m);
 
             try self.ssa.funcs.put(f.name, f);
         }

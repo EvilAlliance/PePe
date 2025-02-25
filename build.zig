@@ -22,6 +22,10 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    exe.addIncludePath(b.path("./src/libs"));
+    exe.addObjectFile(b.path("./src/libs/tb.a")); // Adjust the path and filename
+    exe.linkLibC();
+
     // This declares intent for the executable to be installed into the
     // standard location when the user invokes the "install" step (the default
     // step when running `zig build`).

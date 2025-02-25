@@ -1,15 +1,15 @@
 const std = @import("std");
 const SSAIntrinsic = @import("IR.zig").SSAIntrinsic;
 
-pub const IntrinsicFn = std.StaticStringMap(*const fn (*std.ArrayList(u8), SSAIntrinsic) error{OutOfMemory}!void).initComptime(.{
+const tb = @import("./libs/tb/tb.zig");
+
+pub const IntrinsicFn = std.StaticStringMap(*const fn (g: tb.GraphBuilder, param: [*c]?*tb.Node, paramCounter: i32) ?*tb.Node).initComptime(.{
     .{ "@exit", &Intrinsic.exit },
 });
 
 const Intrinsic = struct {
-    fn exit(cont: *std.ArrayList(u8), i: SSAIntrinsic) error{OutOfMemory}!void {
-        std.debug.assert(i.args.items.len == 1);
-        try cont.appendSlice("mov rax, 60\nmov rdi, ");
-        try cont.appendSlice(i.args.items[0]);
-        try cont.appendSlice("\nsyscall\n");
+    fn exit(g: tb.GraphBuilder, param: [*c]?*tb.Node, paramCounter: i32) ?*tb.Node {
+        const sysExit = g.uint(tb.typeI32(), 60);
+        return g.syscall(tb.typeVoid(), 0, sysExit, paramCounter, param);
     }
 };

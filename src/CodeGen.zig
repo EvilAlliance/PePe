@@ -6,6 +6,8 @@ const tbHelper = @import("TBHelper.zig");
 const getDebugType = tbHelper.getDebugType;
 const getType = tbHelper.getType;
 
+const Intrinsic = @import("Intrinsics.zig").IntrinsicFn;
+
 const c = @cImport({
     @cInclude("stdio.h");
 });
@@ -45,9 +47,10 @@ pub fn codeGen(m: tb.Module, a: tb.Arena, ir: SSA) error{OutOfMemory}!void {
         const mainPrototype = irMain.prototype;
 
         const ret = g.call(mainPrototype, 0, g.symbol(mainExtern), 0, null);
-        const sysExit = g.uint(tb.typeI32(), 60);
 
-        _ = g.syscall(tb.typeVoid(), 0, sysExit, 1, ret);
+        const exit = comptime Intrinsic.get("@exit").?;
+
+        _ = exit(g, ret, 1);
 
         g.ret(0, 0, null);
     }

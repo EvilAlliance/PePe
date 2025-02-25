@@ -91,6 +91,42 @@ fn writeAll(c: []const u8, arg: Arguments, name: []u8) void {
     };
 }
 
+fn generateExecutable(alloc: std.mem.Allocator, m: tb.Module, a: tb.Arena, ir: IR, path: []const u8) u8 {
+    const ws = tb.Worklist.alloc();
+    defer ws.free();
+
+    var funcIterator = ir.ssa.funcs.iterator();
+    var func = funcIterator.next();
+    while (func != null) : (func = funcIterator.next()) {
+        var feature: tb.FeatureSet = undefined;
+        _ = func.?.value_ptr.func.codeGen(ws, a, &feature, false);
+    }
+
+    const eb = m.objectExport(a, tb.DebugFormat.NONE);
+    if (!eb.toFile(("mainModule.o"))) {
+        std.log.err("Could not export object to file", .{});
+        return 1;
+    }
+
+    var cmdObj = Commnad.init(alloc, &[_][]const u8{ "ld", "mainModule.o", "-o", path }, false);
+    const resultObj = cmdObj.execute() catch {
+        std.log.err("Could not link the generated object file", .{});
+        return 1;
+    };
+
+    var cmdClean = Commnad.init(alloc, &[_][]const u8{ "rm", "mainModule.o" }, false);
+    _ = cmdClean.execute() catch {
+        std.log.err("Could not clean the generated object file", .{});
+    };
+
+    switch (resultObj) {
+        .Exited => |x| if (x != 0) std.log.err("Could not link generated object file", .{}),
+        else => std.log.err("Could not link generated object file", .{}),
+    }
+
+    return 0;
+}
+
 pub fn main() u8 {
     var timer = std.time.Timer.start() catch unreachable;
 
@@ -216,38 +252,8 @@ pub fn main() u8 {
         return 0;
     }
 
-    {
-        const ws = tb.Worklist.alloc();
-        defer ws.free();
-        var funcIterator = ir.ssa.funcs.iterator();
-        var func = funcIterator.next();
-        while (func != null) : (func = funcIterator.next()) {
-            var feature: tb.FeatureSet = undefined;
-            _ = func.?.value_ptr.func.codeGen(ws, a, &feature, false);
-        }
-
-        const eb = m.objectExport(a, tb.DebugFormat.NONE);
-        if (!eb.toFile(("mainModule.o"))) {
-            std.log.err("Could not export object to file", .{});
-            return 1;
-        }
-
-        var cmdObj = Commnad.init(alloc, &[_][]const u8{ "ld", "mainModule.o", "-o", path }, false);
-        const resultObj = cmdObj.execute() catch {
-            std.log.err("Could not link the generated object file", .{});
-            return 1;
-        };
-
-        var cmdClean = Commnad.init(alloc, &[_][]const u8{ "rm", "mainModule.o" }, false);
-        _ = cmdClean.execute() catch {
-            std.log.err("Could not clean the generated object file", .{});
-        };
-
-        switch (resultObj) {
-            .Exited => |x| if (x != 0) std.log.err("Could not link generated object file", .{}),
-            else => std.log.err("Could not link generated object file", .{}),
-        }
-    }
+    const r = generateExecutable(alloc, m, a, ir, path);
+    if (r != 0) return r;
 
     return 0;
 }

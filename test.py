@@ -166,7 +166,7 @@ def run_all_test_for_file(file_path: str, stats: RunStats = RunStats()):
    run_test_for_file_stdout(file_path, 'lex', stats)
    run_test_for_file_stdout(file_path, 'parse', stats)
    run_test_for_file_stdout(file_path, 'ir', stats)
-   # run_test_for_file_stdout(file_path, 'build', stats)
+   run_test_for_file_stdout(file_path, 'build', stats)
    # run_test_for_file(file_path, 'run', stats)
 
 def run_test_for_folder(folder: str):
@@ -226,7 +226,7 @@ def update_all_output_for_file(file_path: str):
     update_output_for_file_stdout(file_path, "lex")
     update_output_for_file_stdout(file_path, "parse")
     update_output_for_file_stdout(file_path, "ir")
-    # update_output_for_file_stdout(file_path, "build")
+    update_output_for_file_stdout(file_path, "build")
     # update_output_for_file(file_path, "run")
 
 def update_all_output_for_folder(folder: str):

@@ -91,17 +91,7 @@ fn writeAll(c: []const u8, arg: Arguments, name: []u8) void {
     };
 }
 
-fn generateExecutable(alloc: std.mem.Allocator, m: tb.Module, a: tb.Arena, ir: IR, path: []const u8) u8 {
-    const ws = tb.Worklist.alloc();
-    defer ws.free();
-
-    var funcIterator = ir.ssa.funcs.iterator();
-    var func = funcIterator.next();
-    while (func != null) : (func = funcIterator.next()) {
-        var feature: tb.FeatureSet = undefined;
-        _ = func.?.value_ptr.func.codeGen(ws, a, &feature, false);
-    }
-
+fn generateExecutable(alloc: std.mem.Allocator, m: tb.Module, a: tb.Arena, path: []const u8) u8 {
     const eb = m.objectExport(a, tb.DebugFormat.NONE);
     if (!eb.toFile(("mainModule.o"))) {
         std.log.err("Could not export object to file", .{});
@@ -145,7 +135,7 @@ pub fn main() u8 {
     _ = arena.reset(std.heap.ArenaAllocator.ResetMode.retain_capacity);
 
     if (arguments.run and arguments.stdout) {
-        std.log.err("Subcommand run can't be use with argument stdout", .{});
+        std.log.warn("Subcommand run wont print anything", .{});
         return 1;
     }
 
@@ -243,7 +233,7 @@ pub fn main() u8 {
     if (arguments.bench)
         std.log.info("Finished in {}", .{std.fmt.fmtDuration(timer.lap())});
 
-    if (arguments.stdout) {
+    if (!arguments.run and arguments.stdout) {
         var funcsIterator = ir.ssa.funcs.valueIterator();
         var func = funcsIterator.next();
         while (func != null) : (func = funcsIterator.next()) {
@@ -252,8 +242,28 @@ pub fn main() u8 {
         return 0;
     }
 
-    const r = generateExecutable(alloc, m, a, ir, path);
-    if (r != 0) return r;
+    {
+        const ws = tb.Worklist.alloc();
+        defer ws.free();
+
+        var funcIterator = ir.ssa.funcs.valueIterator();
+        var func = funcIterator.next();
+
+        while (func != null) : (func = funcIterator.next()) {
+            var feature: tb.FeatureSet = undefined;
+            _ = func.?.func.codeGen(ws, a, &feature, false);
+        }
+    }
+
+    if (arguments.build) {
+        const r = generateExecutable(alloc, m, a, path);
+        if (r != 0) return r;
+    } else {
+        const jit = tb.Jit.begin(m, 1024 ^ 3);
+        const func = jit.placeFunction(ir.ssa.funcs.get("main").?.func);
+        const mainf: *fn () u8 = @ptrCast(func.?);
+        return mainf();
+    }
 
     return 0;
 }

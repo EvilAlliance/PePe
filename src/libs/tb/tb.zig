@@ -227,14 +227,14 @@ pub const Jit = struct {
     jit: *tb.JIT,
 
     pub inline fn begin(m: Module, jit_heap_capacity: usize) @This() {
-        const jit = tb.jitBegin(m.m, jit_heap_capacity);
+        const jit = tb.jitBegin(m.m, jit_heap_capacity) orelse unreachable;
 
         return @This(){
             .jit = jit,
         };
     }
 
-    pub inline fn placeFunction(self: @This(), f: Function) *void {
+    pub inline fn placeFunction(self: @This(), f: Function) ?*anyopaque {
         return tb.jitPlanceFunction(self.jit, f.f);
     }
 };

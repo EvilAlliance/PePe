@@ -88,7 +88,6 @@ fn parseSubcommand(subcommand: []const u8, args: *Arguments) !void {
     if (std.mem.eql(u8, subcommand, "build")) {
         args.build = true;
     } else if (std.mem.eql(u8, subcommand, "run")) {
-        args.build = true;
         args.run = true;
     } else if (std.mem.eql(u8, subcommand, "sim")) {
         args.simulation = true;

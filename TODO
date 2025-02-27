@@ -1,7 +1,6 @@
 TODO: TypeCheck does not check if main returns the correct type
 TODO: Rework TypeCheck because is horrible
 TODO: Extract parseExpression to the respective struct when Expression is developed
-TODO: Different allocator for different part of application so we can free memory
 DONE: Do not unse unreachable, only when telling that is not implemented
 DONE: Make peek and pop from the Lexer return Token and not Optional Token
 DONE: Change SSAIntrinsic, instead of an array,  make an arraylist

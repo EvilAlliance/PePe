@@ -598,20 +598,20 @@ pub const ExternalType = enum(c_int) {
     SO_EXPORT,
 };
 
-pub const Global = extern opaque {};
-pub const External = extern opaque {};
-pub const Function = extern opaque {};
+pub const Global = opaque {};
+pub const External = opaque {};
+pub const Function = opaque {};
 
-pub const Module = extern opaque {};
-pub const DebugType = extern opaque {};
-pub const ModuleSection = extern opaque {};
+pub const Module = opaque {};
+pub const DebugType = opaque {};
+pub const ModuleSection = opaque {};
 
 // TODO(NeGate): get rid of the lack of namespace here
-pub const RegMask = extern opaque {};
+pub const RegMask = opaque {};
 
 pub const ModuleSectionHandleNone = -1;
 pub const ModuleSectionHandle = i32;
-pub const Attrib = extern opaque {};
+pub const Attrib = opaque {};
 
 // target-specific, just a unique ID for the registers
 pub const PhysicalReg = c_int;
@@ -1010,8 +1010,8 @@ pub const printDisassemblyInst = @extern(*const fn (arch: Arch, length: usize, p
 ////////////////////////////////
 // JIT compilation
 ////////////////////////////////
-pub const JIT = extern opaque {};
-pub const CPUContext = extern opaque {};
+pub const JIT = opaque {};
+pub const CPUContext = opaque {};
 
 // passing 0 to jit_heap_capacity will default to 4MiB
 pub const jitBegin = @extern(*const fn (m: ?*Module, jit_heap_capacity: usize) callconv(.C) ?*JIT, .{ .name = "tb_jit_begin" });

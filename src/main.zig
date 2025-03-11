@@ -20,7 +20,7 @@ const tb = @import("./libs/tb/tb.zig");
 
 var silence = false;
 
-pub const std_options = .{
+pub const std_options: std.Options = .{
     .logFn = log,
 };
 

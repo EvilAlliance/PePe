@@ -51,17 +51,19 @@ fn log(
     }
 }
 
-fn getName(alloc: std.mem.Allocator, absPath: []const u8, extName: []const u8) []u8 {
+fn getName(absPath: []const u8, extName: []const u8) []u8 {
+    var buf: [5 * 1024]u8 = undefined;
+
     const fileName = std.mem.lastIndexOf(u8, absPath, "/").?;
     const ext = std.mem.lastIndexOf(u8, absPath, ".").?;
     if (extName.len > 0)
-        return std.fmt.allocPrint(alloc, "{s}.{s}", .{ absPath[fileName + 1 .. ext], extName }) catch {
-            std.log.err("Name is to large\n", .{});
+        return std.fmt.bufPrint(&buf, "{s}.{s}", .{ absPath[fileName + 1 .. ext], extName }) catch {
+            std.log.err("Name is to larger than {}\n", .{5 * 1024});
             return "";
         }
     else
-        return std.fmt.allocPrint(alloc, "{s}{s}", .{ absPath[fileName + 1 .. ext], [1]u8{0} }) catch {
-            std.log.err("Name is to large\n", .{});
+        return std.fmt.bufPrint(&buf, "{s}{s}", .{ absPath[fileName + 1 .. ext], [1]u8{0} }) catch {
+            std.log.err("Name is to larger than {}\n", .{5 * 1024});
             return "";
         };
 }
@@ -125,7 +127,7 @@ pub fn main() u8 {
 
     const alloc = arena.allocator();
 
-    const arguments = getArguments(alloc) orelse {
+    const arguments = getArguments() orelse {
         usage();
         return 1;
     };
@@ -151,7 +153,7 @@ pub fn main() u8 {
             return 1;
         };
 
-        const name = getName(alloc, lexer.absPath, "lex");
+        const name = getName(lexer.absPath, "lex");
         writeAll(lexContent.items, arguments, name);
 
         return 0;
@@ -177,7 +179,7 @@ pub fn main() u8 {
             return 1;
         };
 
-        const name = getName(alloc, lexer.absPath, "parse");
+        const name = getName(lexer.absPath, "parse");
         writeAll(cont.items, arguments, name);
 
         return 0;
@@ -212,7 +214,7 @@ pub fn main() u8 {
             return 1;
         };
 
-        const name = getName(alloc, lexer.absPath, "ir");
+        const name = getName(lexer.absPath, "ir");
         writeAll(cont.items, arguments, name);
 
         return 0;
@@ -220,7 +222,7 @@ pub fn main() u8 {
 
     std.log.info("CodeGen", .{});
 
-    const path = getName(alloc, lexer.absPath, "");
+    const path = getName(lexer.absPath, "");
 
     var a = tb.Arena.create("For main Module");
     defer a.destroy();

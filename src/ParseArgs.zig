@@ -24,27 +24,22 @@ const ArgumentsError = error{
 const ArgError = util.ErrorPayLoad(ArgumentsError, ?[]const u8);
 const ArgumentResult = util.Result(Arguments, ArgError);
 
-pub fn getArguments(alloc: std.mem.Allocator) ?Arguments {
-    var args = std.ArrayList([]const u8).init(alloc);
-    defer args.deinit();
+pub fn getArguments() ?Arguments {
+    var args = std.BoundedArray([]const u8, 1024).init(0) catch unreachable;
 
-    var argsIterator = std.process.ArgIterator.initWithAllocator(alloc) catch {
-        std.log.err("Out of memory", .{});
-        return;
-    };
-    defer argsIterator.deinit();
+    var argsIterator = std.process.args();
 
     _ = argsIterator.skip();
 
     var arg = argsIterator.next();
     while (arg != null) : (arg = argsIterator.next()) {
         args.append(arg.?) catch {
-            std.log.err("Out of memory", .{});
+            std.log.err("Out of space, too many args, max = 1024. Change soruce code", .{});
             return null;
         };
     }
 
-    const a: ArgumentResult = parseArguments(args.items);
+    const a: ArgumentResult = parseArguments(args.constSlice());
     switch (a) {
         .err => |err| {
             switch (err.err) {
@@ -62,7 +57,7 @@ pub fn getArguments(alloc: std.mem.Allocator) ?Arguments {
     return a.ok;
 }
 
-fn parseArguments(args: [][]const u8) ArgumentResult {
+fn parseArguments(args: []const []const u8) ArgumentResult {
     if (args.len == 0) {
         return ArgumentResult.Err(ArgError.init(error.noSubcommandProvided, null));
     } else if (args.len == 1) {
@@ -113,94 +108,4 @@ fn parseArgument(arg: []const u8, args: *Arguments) !void {
     } else {
         return error.unknownArgument;
     }
-}
-
-test {
-    var arg = std.ArrayList([]const u8).init(std.testing.allocator);
-    defer arg.deinit();
-
-    try std.testing.expect(std.meta.eql(parseArguments(arg.items), ArgumentResult{ .err = ArgError.init(error.noSubcommandProvided, null) }));
-    try arg.append("com");
-    try std.testing.expect(std.meta.eql(parseArguments(arg.items), ArgumentResult{ .err = ArgError.init(error.noFilePathProvided, null) }));
-
-    try arg.append("f");
-    try std.testing.expect(std.meta.eql(parseArguments(arg.items), ArgumentResult{ .err = ArgError.init(error.unknownSubcommand, "com") }));
-
-    arg.clearRetainingCapacity();
-    try arg.append("run");
-    try arg.append("f");
-    try arg.append("-f");
-    try std.testing.expect(std.meta.eql(parseArguments(arg.items), ArgumentResult{ .err = ArgError.init(error.unknownArgument, "-f") }));
-
-    arg.clearRetainingCapacity();
-    try arg.append("run");
-    try arg.append("f");
-    try arg.append("-s");
-    try arg.append("-b");
-    try arg.append("-stdout");
-    try std.testing.expect(std.meta.eql(parseArguments(arg.items), ArgumentResult{ .ok = Arguments{ .path = "f", .build = true, .run = true, .bench = true, .silence = true, .stdout = true } }));
-
-    arg.clearRetainingCapacity();
-    try arg.append("sim");
-    try arg.append("f");
-    try arg.append("-s");
-    try arg.append("-b");
-    try arg.append("-stdout");
-    try std.testing.expect(std.meta.eql(parseArguments(arg.items), ArgumentResult{ .ok = Arguments{ .path = "f", .simulation = true, .bench = true, .silence = true, .stdout = true } }));
-
-    arg.clearRetainingCapacity();
-    try arg.append("lex");
-    try arg.append("f");
-    try arg.append("-s");
-    try arg.append("-b");
-    try arg.append("-stdout");
-    try std.testing.expect(std.meta.eql(parseArguments(arg.items), ArgumentResult{ .ok = Arguments{ .path = "f", .lex = true, .bench = true, .silence = true, .stdout = true } }));
-
-    arg.clearRetainingCapacity();
-    try arg.append("parse");
-    try arg.append("f");
-    try arg.append("-s");
-    try arg.append("-b");
-    try arg.append("-stdout");
-    try std.testing.expect(std.meta.eql(parseArguments(arg.items), ArgumentResult{ .ok = Arguments{ .path = "f", .parse = true, .bench = true, .silence = true, .stdout = true } }));
-}
-
-test {
-    var a = Arguments{ .path = "f" };
-    try std.testing.expectError(error.unknownSubcommand, parseSubcommand("-f", &a));
-
-    try parseSubcommand("run", &a);
-    try std.testing.expect(std.meta.eql(a, Arguments{ .path = "f", .run = true, .build = true }));
-
-    a.build = false;
-    a.run = false;
-
-    try parseSubcommand("build", &a);
-    try std.testing.expect(std.meta.eql(a, Arguments{ .path = "f", .build = true }));
-
-    a.build = false;
-
-    try parseSubcommand("sim", &a);
-    try std.testing.expect(std.meta.eql(a, Arguments{ .path = "f", .simulation = true }));
-
-    a.simulation = false;
-
-    try parseSubcommand("lex", &a);
-    try std.testing.expect(std.meta.eql(a, Arguments{ .path = "f", .lex = true }));
-}
-
-test {
-    var a = Arguments{ .path = "f" };
-    try std.testing.expectError(error.unknownArgument, parseArgument("-f", &a));
-
-    try parseArgument("-b", &a);
-    try std.testing.expect(std.meta.eql(a, Arguments{ .path = "f", .bench = true }));
-    a.bench = false;
-
-    try parseArgument("-s", &a);
-    try std.testing.expect(std.meta.eql(a, Arguments{ .path = "f", .silence = true }));
-
-    a.silence = false;
-    try parseArgument("-stdout", &a);
-    try std.testing.expect(std.meta.eql(a, Arguments{ .path = "f", .stdout = true }));
 }

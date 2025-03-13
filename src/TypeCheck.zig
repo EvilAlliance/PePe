@@ -1,5 +1,4 @@
 const std = @import("std");
-const Allocator = std.mem.Allocator;
 
 const Parser = @import("Parser.zig");
 const Program = Parser.Program;

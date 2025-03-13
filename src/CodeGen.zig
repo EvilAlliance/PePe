@@ -14,7 +14,6 @@ const c = @cImport({
 
 const Primitive = @import("./Parser.zig").Primitive;
 
-const Allocator = std.mem.Allocator;
 const SSA = IR.SSA;
 const SSAFunction = IR.SSAFunction;
 const SSAInstruction = IR.SSAInstruction;

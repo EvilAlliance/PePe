@@ -9,8 +9,24 @@ const assert = std.debug.assert;
 
 pub const Location = struct {
     path: []const u8,
+    content: []const u8,
     row: u64,
     col: u64,
+    i: u64,
+
+    pub fn print(self: @This(), p: *const fn (comptime format: []const u8, args: anytype) void) void {
+        var beg = self.i;
+
+        while (beg > 1 and self.content[beg - 1] != '\n') : (beg -= 1) {}
+        beg -= 1;
+
+        var end = self.i;
+
+        while (end < self.content.len and self.content[end + 1] != '\n') : (end += 1) {}
+        end += 1;
+
+        p("{s}\n", .{self.content[beg..end]});
+    }
 };
 
 pub const TokenType = enum {
@@ -115,8 +131,8 @@ pub const Lexer = struct {
     path: []const u8,
     absPath: []const u8,
     content: []const u8,
-    prevLoc: Location = Location{ .row = 1, .col = 1, .path = "" },
-    currentLoc: Location = Location{ .row = 1, .col = 1, .path = "" },
+    prevLoc: Location = Location{ .row = 1, .col = 1, .i = 0, .path = "", .content = "" },
+    currentLoc: Location = Location{ .row = 1, .col = 1, .i = 0, .path = "", .content = "" },
     index: usize = 0,
     peeked: usize = 0,
     finished: bool = false,
@@ -132,11 +148,12 @@ pub const Lexer = struct {
             }
             self.index += 1;
             self.currentLoc.col += 1;
+            self.currentLoc.i += 1;
         }
     }
 
     pub fn advance(self: *Lexer) ?usize {
-        if (self.index >= self.content.len - 1) return null;
+        if (self.content.len == 0 or self.index >= self.content.len - 1) return null;
         if (self.index < self.peeked) return self.peeked;
 
         self.skipIgnore();
@@ -208,7 +225,9 @@ pub const Lexer = struct {
         };
 
         l.prevLoc.path = path;
+        l.prevLoc.content = c;
         l.currentLoc.path = path;
+        l.currentLoc.content = c;
 
         return l;
     }

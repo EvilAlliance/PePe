@@ -171,13 +171,13 @@ pub const StatementFunc = struct {
 
         const func = p.l.peek();
         assert(func.type == TokenType.func);
-        const funcLoc = func.loc;
 
         _ = p.l.pop();
 
         const name = p.l.pop();
         unexpected = Parser.expect(name, TokenType.iden);
         if (unexpected != null) return r.Err(unexpected.?);
+        const funcLoc = name.loc;
 
         var separator = p.l.pop();
         unexpected = Parser.expect(separator, TokenType.openParen);
@@ -363,14 +363,17 @@ pub const Parser = struct {
     }
 
     pub fn parseGlobalScope(self: *Parser) error{OutOfMemory}!?UnexpectedToken {
-        const t = self.l.peek();
-        if (t.type == TokenType.func) {
-            const r = try StatementFunc.parse(self);
-            switch (r) {
-                .ok => try self.program.funcs.put(r.ok.name, r.ok),
-                .err => return r.err,
+        var t = self.l.peek();
+        if (t.type == TokenType.EOF) return null;
+        while (t.type != TokenType.EOF) : (t = self.l.peek()) {
+            if (t.type == TokenType.func) {
+                const r = try StatementFunc.parse(self);
+                switch (r) {
+                    .ok => try self.program.funcs.put(r.ok.name, r.ok),
+                    .err => return r.err,
+                }
+                return null;
             }
-            return null;
         }
 
         return expect(t, TokenType.any);

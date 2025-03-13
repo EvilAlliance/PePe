@@ -55,7 +55,7 @@ fn getName(alloc: std.mem.Allocator, absPath: []const u8, extName: []const u8) [
     const fileName = std.mem.lastIndexOf(u8, absPath, "/").?;
     const ext = std.mem.lastIndexOf(u8, absPath, ".").?;
     if (extName.len > 0)
-        return std.fmt.allocPrint(alloc, "{s}.{s}{s}", .{ absPath[fileName + 1 .. ext], extName, [1]u8{0} }) catch {
+        return std.fmt.allocPrint(alloc, "{s}.{s}", .{ absPath[fileName + 1 .. ext], extName }) catch {
             std.log.err("Name is to large\n", .{});
             return "";
         }
@@ -78,7 +78,7 @@ fn writeAll(c: []const u8, arg: Arguments, name: []u8) void {
         writer = std.io.getStdOut().writer();
     } else {
         file = std.fs.cwd().createFile(name, .{}) catch |err| {
-            std.log.err("Could not open file ({s}) becuase {}\n", .{ arg.path, err });
+            std.log.err("could not open file ({s}) becuase {}\n", .{ arg.path, err });
             return;
         };
 
@@ -185,7 +185,7 @@ pub fn main() u8 {
 
     std.log.info("Type Checking", .{});
 
-    if (typeCheck(parser.program, alloc) catch {
+    if (typeCheck(parser.program) catch {
         std.log.err("out of memory", .{});
         return 1;
     }) return 1;

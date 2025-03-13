@@ -6,24 +6,22 @@ const Program = Parser.Program;
 const Primitive = Parser.Primitive;
 const Function = Parser.StatementFunc;
 
-const TypeError = union(enum) {
-    unavailableFunctionIdentifier: Function,
-    expectedFunction: []const u8,
-    valueNotCompatibleWithType: struct {
-        primitive: Primitive,
-        value: []const u8,
-    },
-    invalidType: Primitive,
-};
-
-pub fn typeCheck(p: Program, alloc: Allocator) error{OutOfMemory}!bool {
-    var typeError = std.ArrayList(TypeError).init(alloc);
+pub fn typeCheck(p: Program) error{OutOfMemory}!bool {
+    var err = false;
     if (p.funcs.get("_start")) |startF| {
-        try typeError.append(TypeError{ .unavailableFunctionIdentifier = startF });
+        err = true;
+        std.log.err("{s}:{}:{} {s} identifier is not available", .{ startF.loc.path, startF.loc.row, startF.loc.col, startF.name });
+        startF.loc.print(std.log.err);
     }
 
     if (p.funcs.get("main") == null) {
-        try typeError.append(TypeError{ .expectedFunction = "main" });
+        err = true;
+        std.log.err(
+            \\Main function must be defined 
+            \\    fn main() u8 {{
+            \\        return 0;
+            \\    }}
+        , .{});
     }
 
     var itFunc = p.funcs.iterator();
@@ -33,44 +31,25 @@ pub fn typeCheck(p: Program, alloc: Allocator) error{OutOfMemory}!bool {
         const retType = func.?.value_ptr.returnType;
         if (retType.type != .bool or retType.type != .void) {
             if ((retType.type == .signed or retType.type == .unsigned) and retType.size % 8 != 0 and retType.size <= 64) {
-                try typeError.append(TypeError{ .invalidType = retType });
+                err = true;
+                std.log.err("Numeric types except float should be smaller of 64 bits and the module of 8 bit should be 0", .{});
                 continue;
             } else if (retType.type == .float and retType.size % 32 != 0 and retType.size <= 64) {
-                try typeError.append(TypeError{ .invalidType = retType });
+                err = true;
+                std.log.err("Numeric types except float should be smaller of 64 bits and the module of 32 bit should be 0", .{});
                 continue;
             }
         }
         for (func.?.value_ptr.body.items) |stmt| {
             switch (stmt) {
                 .ret => |ret| if (!retType.possibleValue(ret.expr)) {
-                    try typeError.append(TypeError{
-                        .valueNotCompatibleWithType = .{
-                            .primitive = retType,
-                            .value = ret.expr,
-                        },
-                    });
+                    err = true;
+                    std.log.err("Rework Type Errors", .{});
                 },
                 else => continue,
             }
         }
     }
 
-    for (typeError.items) |err| {
-        switch (err) {
-            .expectedFunction => |e| std.log.err("{s} function must be defined", .{e}),
-            .unavailableFunctionIdentifier => |e| std.log.err("{s}:{}:{} {s} identifier is not available", .{ e.loc.path, e.loc.row, e.loc.col, e.name }),
-            .invalidType => |e| {
-                if (e.type != .bool or e.type != .void) {
-                    if ((e.type == .signed or e.type == .unsigned) and e.size % 8 != 0 and e.size <= 64) {
-                        std.log.err("Numeric types except float should be smaller of 64 bits and the module of 8 bit should be 0", .{});
-                    } else if (e.type == .float and e.size % 32 != 0 and e.size <= 64) {
-                        std.log.err("Numeric types except float should be smaller of 64 bits and the module of 32 bit should be 0", .{});
-                    }
-                }
-            },
-            .valueNotCompatibleWithType => std.log.err("Rework Type Errors", .{}),
-        }
-    }
-
-    return typeError.items.len > 0;
+    return err;
 }

@@ -40,6 +40,7 @@ pub const TokenType = enum {
     any,
     numberLiteral,
     iden,
+    symbol,
     EOF,
 
     pub fn isIden(str: []const u8) bool {
@@ -72,7 +73,7 @@ pub const TokenType = enum {
                 ';' => return TokenType.semicolon,
                 '0'...'9' => return TokenType.numberLiteral,
                 'a'...'z', 'A'...'Z' => return TokenType.iden,
-                else => return TokenType.any,
+                else => return TokenType.symbol,
             }
         } else if (std.mem.eql(u8, str, "return")) {
             return TokenType.ret;
@@ -138,7 +139,26 @@ pub const Lexer = struct {
     finished: bool = false,
 
     const separatorIgnore = " \t\n\r";
-    const separator = separatorIgnore ++ "{}();";
+    const separator: [(127 - 33) - (26 * 2) - 10 + 4]u8 = blk: {
+        var result: [(127 - 33) - (26 * 2) - 10 + 4]u8 = undefined;
+        var index: usize = 0;
+
+        for (separatorIgnore) |value| {
+            result[index] = value;
+            index += 1;
+        }
+
+        for (33..127) |i| {
+            const c = @as(u8, @intCast(i));
+            // Filter non-alphanumeric characters
+            if (!std.ascii.isAlphanumeric(c)) {
+                result[index] = c;
+                index += 1;
+            }
+        }
+
+        break :blk result;
+    };
 
     fn skipIgnore(self: *Lexer) void {
         while (self.index < self.content.len and util.listContains(u8, separatorIgnore, self.content[self.index])) {
@@ -148,8 +168,8 @@ pub const Lexer = struct {
             }
             self.index += 1;
             self.currentLoc.col += 1;
-            self.currentLoc.i += 1;
         }
+        self.currentLoc.i = self.index;
     }
 
     pub fn advance(self: *Lexer) ?usize {
@@ -160,7 +180,7 @@ pub const Lexer = struct {
         self.prevLoc = self.currentLoc;
         var i = self.index;
 
-        while (i < self.content.len and !util.listContains(u8, separator, self.content[i])) {
+        while (i < self.content.len and !util.listContains(u8, &separator, self.content[i])) {
             i += 1;
             self.currentLoc.col += 1;
         }
@@ -169,6 +189,7 @@ pub const Lexer = struct {
             i += 1;
             self.currentLoc.col += 1;
         }
+        self.currentLoc.i = self.index;
 
         return i;
     }

@@ -62,10 +62,7 @@ fn getName(absPath: []const u8, extName: []const u8) []u8 {
             return "";
         }
     else
-        return std.fmt.bufPrint(&buf, "{s}{s}", .{ absPath[fileName + 1 .. ext], [1]u8{0} }) catch {
-            std.log.err("Name is to larger than {}\n", .{5 * 1024});
-            return "";
-        };
+        return @constCast(absPath[fileName + 1 .. ext]);
 }
 
 fn writeAll(c: []const u8, arg: Arguments, name: []u8) void {
@@ -138,7 +135,6 @@ pub fn main() u8 {
 
     if (arguments.run and arguments.stdout) {
         std.log.warn("Subcommand run wont print anything", .{});
-        return 1;
     }
 
     std.log.info("Lexing and Parsing", .{});
@@ -227,7 +223,7 @@ pub fn main() u8 {
     var a = tb.Arena.create("For main Module");
     defer a.destroy();
 
-    codeGen(m, a, ir.ssa) catch {
+    const startF = codeGen(m, ir.ssa) catch {
         std.log.err("Out of memory", .{});
         return 1;
     };
@@ -236,6 +232,7 @@ pub fn main() u8 {
         std.log.info("Finished in {}", .{std.fmt.fmtDuration(timer.lap())});
 
     if (!arguments.run and arguments.stdout) {
+        startF.print();
         var funcsIterator = ir.ssa.funcs.valueIterator();
         var func = funcsIterator.next();
         while (func != null) : (func = funcsIterator.next()) {
@@ -250,6 +247,11 @@ pub fn main() u8 {
 
         var funcIterator = ir.ssa.funcs.valueIterator();
         var func = funcIterator.next();
+
+        {
+            var feature: tb.FeatureSet = undefined;
+            _ = startF.codeGen(ws, a, &feature, false);
+        }
 
         while (func != null) : (func = funcIterator.next()) {
             var feature: tb.FeatureSet = undefined;

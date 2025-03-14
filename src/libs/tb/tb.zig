@@ -20,6 +20,9 @@ pub const ExternalType = tb.ExternalType;
 pub const Symbol = tb.Symbol;
 pub const FeatureSet = tb.FeatureSet;
 
+pub const NodeType = tb.NodeTypeEnum;
+pub const ArithmeticBehavior = tb.ArithmeticBehavior;
+
 pub const typeTuple = tb.typeTuple;
 pub const typeControl = tb.typeControl;
 pub const typeVoid = tb.typeVoid;
@@ -160,6 +163,10 @@ pub const Function = struct {
     pub inline fn print(self: @This()) void {
         tb.print(self.f);
     }
+
+    pub inline fn printDump(self: @This()) void {
+        tb.printDump(self.f);
+    }
 };
 
 pub const GraphBuilder = struct {
@@ -187,6 +194,10 @@ pub const GraphBuilder = struct {
 
     pub inline fn uint(self: @This(), dt: DataType, x: u64) *Node {
         return tb.builderUint(self.g, dt, x) orelse unreachable;
+    }
+
+    pub inline fn binopInt(self: @This(), t: NodeType, a: *Node, b: *Node, ab: ArithmeticBehavior) *Node {
+        return tb.builderBinopInt(self.g, @intFromEnum(t), a, b, ab) orelse unreachable;
     }
 
     pub inline fn ret(self: @This(), mem_var: i32, arg_count: i32, args: [*c]?*Node) void {

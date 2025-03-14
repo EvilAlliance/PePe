@@ -12,14 +12,7 @@ pub fn getType(t: Primitive) tb.DataType {
             64 => tb.typeF64(),
             else => unreachable,
         },
-        .signed => switch (t.size) {
-            8 => tb.typeI8(),
-            16 => tb.typeI16(),
-            32 => tb.typeI32(),
-            64 => tb.typeI64(),
-            else => unreachable,
-        },
-        .unsigned => switch (t.size) {
+        .signed, .unsigned => switch (t.size) {
             8 => tb.typeI8(),
             16 => tb.typeI16(),
             32 => tb.typeI32(),

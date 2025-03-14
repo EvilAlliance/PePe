@@ -2,6 +2,11 @@ const std = @import("std");
 const LEXER = @import("Lexer.zig");
 const util = @import("Util.zig");
 const gen = @import("General.zig");
+const tb = @import("./libs/tb/tb.zig");
+const tbHelper = @import("TBHelper.zig");
+const SSA = @import("IR.zig");
+
+const getType = tbHelper.getType;
 
 const message = gen.message;
 const assert = std.debug.assert;
@@ -14,7 +19,114 @@ const Location = LEXER.Location;
 
 const Result = util.Result;
 
-pub const Expression = []const u8;
+pub const Expression = union(enum) {
+    bin: struct {
+        op: Token,
+        left: *Expression,
+        right: *Expression,
+    },
+    una: struct {
+        op: Token,
+        t: *Expression,
+    },
+    leaf: Token,
+
+    fn parser(p: *Parser) Result(*Expression, UnexpectedToken) {
+        const r = Result(*Expression, UnexpectedToken);
+
+        const leftLeaf = @This(){ .leaf = p.l.pop() };
+        const unexpected = Parser.expect(leftLeaf.leaf, TokenType.numberLiteral);
+        if (unexpected != null) return r.Err(unexpected.?);
+
+        const semi = p.l.peek();
+
+        if (semi.type == .semicolon) {
+            const expr = p.alloc.create(Expression) catch {
+                std.log.err("Out of memory", .{});
+                std.process.exit(1);
+            };
+
+            expr.* = leftLeaf;
+
+            return r.Ok(expr);
+        } else if (semi.type == .symbol) {
+            var addingSymbol = p.l.pop();
+            var symbol = addingSymbol;
+            addingSymbol = p.l.peek();
+            while (addingSymbol.type == .symbol) : (addingSymbol = p.l.peek()) {
+                _ = p.l.pop();
+                symbol.str = symbol.loc.content[symbol.loc.i..addingSymbol.loc.i];
+            }
+
+            const rightLeaf = parser(p);
+
+            switch (rightLeaf) {
+                .err => return rightLeaf,
+                .ok => {},
+            }
+
+            const expr = p.alloc.create(Expression) catch {
+                std.log.err("Out of memory", .{});
+                std.process.exit(1);
+            };
+
+            expr.* = .{
+                .bin = .{
+                    .op = symbol,
+                    .left = p.alloc.create(Expression) catch {
+                        std.log.err("Out of memory", .{});
+                        std.process.exit(1);
+                    },
+                    .right = rightLeaf.ok,
+                },
+            };
+            expr.bin.left.* = leftLeaf;
+
+            return r.Ok(expr);
+        } else {
+            const unexpectedSymbol = Parser.expect(semi, TokenType.symbol);
+            if (unexpectedSymbol != null) return r.Err(unexpectedSymbol.?);
+
+            const unexpectedSemi = Parser.expect(semi, TokenType.semicolon);
+            if (unexpectedSemi != null) return r.Err(unexpectedSemi.?);
+        }
+        unreachable;
+    }
+
+    pub fn codeGen(self: @This(), g: tb.GraphBuilder, f: SSA.SSAFunction) *tb.Node {
+        return switch (self) {
+            .una => |_| unreachable,
+            .bin => |b| {
+                const left = b.left.codeGen(g, f);
+                const right = b.right.codeGen(g, f);
+                const op = g.binopInt(tb.NodeType.ADD, left, right, tb.ArithmeticBehavior.NUW);
+                return op;
+            },
+            .leaf => |l| g.uint(getType(f.returnType), std.fmt.parseUnsigned(u64, l.str, 10) catch unreachable),
+        };
+    }
+
+    pub fn toString(self: @This(), cont: *std.ArrayList(u8), d: u64) error{OutOfMemory}!void {
+        switch (self) {
+            .bin => |b| {
+                try cont.append('(');
+                try b.left.toString(cont, d);
+                try cont.append(' ');
+                try cont.appendSlice(b.op.str);
+                try cont.append(' ');
+                try b.right.toString(cont, d);
+                try cont.append(')');
+            },
+            .una => |u| {
+                _ = u;
+                unreachable;
+            },
+            .leaf => |l| {
+                try cont.appendSlice(l.str);
+            },
+        }
+    }
+};
 
 pub const Primitive = struct {
     type: enum {
@@ -51,48 +163,52 @@ pub const Primitive = struct {
         return t;
     }
 
-    pub fn possibleValue(self: @This(), str: []const u8) bool {
-        switch (self.type) {
-            .void => return str.len == 0,
-            .bool => {
-                if (str.len == 1) {
-                    return str[0] == '0' or str[0] == '1';
-                }
-                return std.mem.eql(u8, str, "false") or std.mem.eql(u8, str, "true");
-            },
-            .signed => {
-                if (self.size == 8) {
-                    _ = std.fmt.parseInt(i8, str, 10) catch return false;
-                } else if (self.size == 16) {
-                    _ = std.fmt.parseInt(i16, str, 10) catch return false;
-                } else if (self.size == 32) {
-                    _ = std.fmt.parseInt(i32, str, 10) catch return false;
-                } else if (self.size == 64) {
-                    _ = std.fmt.parseInt(i64, str, 10) catch return false;
-                }
-                return true;
-            },
-            .unsigned => {
-                if (self.size == 8) {
-                    _ = std.fmt.parseUnsigned(u8, str, 10) catch return false;
-                } else if (self.size == 16) {
-                    _ = std.fmt.parseUnsigned(u16, str, 10) catch return false;
-                } else if (self.size == 32) {
-                    _ = std.fmt.parseUnsigned(u32, str, 10) catch return false;
-                } else if (self.size == 64) {
-                    _ = std.fmt.parseUnsigned(u64, str, 10) catch return false;
-                }
-                return true;
-            },
-            .float => {
-                if (self.size == 32) {
-                    _ = std.fmt.parseFloat(f32, str) catch return false;
-                } else if (self.size == 64) {
-                    _ = std.fmt.parseFloat(f64, str) catch return false;
-                }
-                return true;
-            },
-        }
+    pub fn possibleValue(self: @This(), expr: *Expression) bool {
+        _ = self;
+        _ = expr;
+        return true;
+        // TODO: I do not know how to do it
+        // switch (self.type) {
+        //     .void => return expr.expr.str.len == 0,
+        //     .bool => {
+        //         if (expr.expr.str.len == 1) {
+        //             return expr.expr.str[0] == '0' or expr.expr.str[0] == '1';
+        //         }
+        //         return std.mem.eql(u8, expr.expr.str, "false") or std.mem.eql(u8, expr.expr.str, "true");
+        //     },
+        //     .signed => {
+        //         if (self.size == 8) {
+        //             _ = std.fmt.parseInt(i8, expr.expr.str, 10) catch return false;
+        //         } else if (self.size == 16) {
+        //             _ = std.fmt.parseInt(i16, expr.expr.str, 10) catch return false;
+        //         } else if (self.size == 32) {
+        //             _ = std.fmt.parseInt(i32, expr.expr.str, 10) catch return false;
+        //         } else if (self.size == 64) {
+        //             _ = std.fmt.parseInt(i64, expr.expr.str, 10) catch return false;
+        //         }
+        //         return true;
+        //     },
+        //     .unsigned => {
+        //         if (self.size == 8) {
+        //             _ = std.fmt.parseUnsigned(u8, expr.expr.str, 10) catch return false;
+        //         } else if (self.size == 16) {
+        //             _ = std.fmt.parseUnsigned(u16, expr.expr.str, 10) catch return false;
+        //         } else if (self.size == 32) {
+        //             _ = std.fmt.parseUnsigned(u32, expr.expr.str, 10) catch return false;
+        //         } else if (self.size == 64) {
+        //             _ = std.fmt.parseUnsigned(u64, expr.expr.str, 10) catch return false;
+        //         }
+        //         return true;
+        //     },
+        //     .float => {
+        //         if (self.size == 32) {
+        //             _ = std.fmt.parseFloat(f32, expr.expr.str) catch return false;
+        //         } else if (self.size == 64) {
+        //             _ = std.fmt.parseFloat(f64, expr.expr.str) catch return false;
+        //         }
+        //         return true;
+        //     },
+        // }
     }
 
     pub fn toString(self: @This(), cont: *std.ArrayList(u8)) error{OutOfMemory}!void {
@@ -117,7 +233,7 @@ pub const Primitive = struct {
 };
 
 const StatementReturn = struct {
-    expr: Expression,
+    expr: *Expression,
     loc: Location,
 
     fn parse(p: *Parser) Result(StatementReturn, UnexpectedToken) {
@@ -129,7 +245,7 @@ const StatementReturn = struct {
 
         _ = p.l.pop();
 
-        const result = p.parserExpression();
+        const result = Expression.parser(p);
         switch (result) {
             .err => return r.Err(result.err),
             .ok => {},
@@ -152,7 +268,7 @@ const StatementReturn = struct {
             try cont.append(' ');
 
         try cont.appendSlice("Return: ");
-        try cont.appendSlice(self.expr);
+        try self.expr.toString(cont, d);
         try cont.append('\n');
     }
 };
@@ -307,13 +423,14 @@ const UnexpectedToken = struct {
     loc: LEXER.Location,
 
     pub fn display(self: UnexpectedToken) void {
-        std.debug.print("Expected: {},\nFound: {},\nIn:{s}: {}:{}\n", .{
+        std.log.err("Expected: {},\nFound: {},\nIn:{s}:{}:{}\n", .{
             self.expected,
             self.found,
             self.path,
             self.loc.row,
             self.loc.col,
         });
+        self.loc.print(std.log.err);
     }
 };
 
@@ -377,16 +494,6 @@ pub const Parser = struct {
         }
 
         return expect(t, TokenType.any);
-    }
-
-    fn parserExpression(self: *Parser) Result(Expression, UnexpectedToken) {
-        const r = Result(Expression, UnexpectedToken);
-
-        const expr = self.l.pop();
-        const unexpected = expect(expr, TokenType.numberLiteral);
-        if (unexpected != null) return r.Err(unexpected.?);
-
-        return r.Ok(expr.str);
     }
 
     pub fn toString(self: *Parser, alloc: std.mem.Allocator) error{OutOfMemory}!std.ArrayList(u8) {

@@ -560,9 +560,9 @@ pub const NodeTypeEnum = enum(c_int) {
 
     // each family of machine nodes gets 256 nodes
     // first machine op, we have some generic ops here:
-    MACH_X86 = Arch.X86_64 * 0x100,
-    MACH_A64 = Arch.AARCH64 * 0x100,
-    MACH_MIPS = Arch.MIPS32 * 0x100,
+    MACH_X86 = @intFromEnum(Arch.X86_64) * 0x100,
+    MACH_A64 = @intFromEnum(Arch.AARCH64) * 0x100,
+    MACH_MIPS = @intFromEnum(Arch.MIPS32) * 0x100,
 };
 pub const NodeType = u16;
 

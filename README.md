@@ -102,8 +102,16 @@ Silence will force bench to not work because output will be close except for err
 
 ## Sintax
 
+Exmples in Example folder
+
 ```console
 fn main() u8 {
-    return 0;
+    return 1;
+}
+```
+
+```console
+fn main() u8 {
+    return 1 + 1;
 }
 ```

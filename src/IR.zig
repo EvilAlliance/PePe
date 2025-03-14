@@ -37,7 +37,7 @@ pub const SSAIntrinsic = struct {
             if (i > 0)
                 try cont.appendSlice(", ");
 
-            try cont.appendSlice(arg);
+            try arg.toString(cont, d);
         }
 
         try cont.append(')');
@@ -47,9 +47,9 @@ pub const SSAIntrinsic = struct {
 };
 
 pub const SSAReturn = struct {
-    expr: Parser.Expression,
+    expr: *Parser.Expression,
 
-    fn init(expr: Parser.Expression) @This() {
+    fn init(expr: *Parser.Expression) @This() {
         return @This(){
             .expr = expr,
         };
@@ -61,7 +61,7 @@ pub const SSAReturn = struct {
 
         try cont.appendSlice("return ");
 
-        try cont.appendSlice(self.expr);
+        try self.expr.toString(cont, d);
 
         try cont.append('\n');
     }

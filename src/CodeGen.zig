@@ -61,8 +61,7 @@ fn codeGenFunction(m: tb.Module, funcWS: tb.Worklist, f: SSAFunction) tb.Functio
     const func = f.func;
     const funcPrototype = f.prototype;
 
-    _ = funcWS;
-    const g = func.graphBuilderEnter(textSection, funcPrototype, null);
+    const g = func.graphBuilderEnter(textSection, funcPrototype, funcWS);
     defer g.exit();
 
     for (f.body.items) |block| {

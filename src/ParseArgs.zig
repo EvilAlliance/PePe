@@ -31,9 +31,8 @@ pub fn getArguments() ?Arguments {
 
     _ = argsIterator.skip();
 
-    var arg = argsIterator.next();
-    while (arg != null) : (arg = argsIterator.next()) {
-        args.append(arg.?) catch {
+    while (argsIterator.next()) |arg| {
+        args.append(arg) catch {
             std.log.err("Out of space, too many args, max = 1024. Change soruce code", .{});
             return null;
         };

@@ -235,9 +235,8 @@ pub fn main() u8 {
     if (!arguments.run and arguments.stdout) {
         startF.print();
         var funcsIterator = ir.ssa.funcs.valueIterator();
-        var func = funcsIterator.next();
-        while (func != null) : (func = funcsIterator.next()) {
-            func.?.func.print();
+        while (funcsIterator.next()) |func| {
+            func.func.print();
         }
         return 0;
     }
@@ -247,16 +246,14 @@ pub fn main() u8 {
         defer ws.free();
 
         var funcIterator = ir.ssa.funcs.valueIterator();
-        var func = funcIterator.next();
-
         {
             var feature: tb.FeatureSet = undefined;
             _ = startF.codeGen(ws, &a, &feature, false);
         }
 
-        while (func != null) : (func = funcIterator.next()) {
+        while (funcIterator.next()) |func| {
             var feature: tb.FeatureSet = undefined;
-            _ = func.?.func.codeGen(ws, &a, &feature, false);
+            _ = func.func.codeGen(ws, &a, &feature, false);
         }
     }
 

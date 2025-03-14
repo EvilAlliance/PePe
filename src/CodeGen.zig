@@ -26,10 +26,9 @@ pub fn codeGen(m: tb.Module, ir: SSA) error{OutOfMemory}!tb.Function {
     const sectionText = m.getText();
 
     var funcIterator = ir.funcs.iterator();
-    var func = funcIterator.next();
 
-    while (func != null) : (func = funcIterator.next()) {
-        _ = codeGenFunction(m, ws, func.?.value_ptr.*);
+    while (funcIterator.next()) |func| {
+        _ = codeGenFunction(m, ws, func.value_ptr.*);
     }
 
     const startF = m.functionCreate("_start", tb.Linkage.PUBLIC);

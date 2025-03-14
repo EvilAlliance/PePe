@@ -36,7 +36,7 @@ pub const Expression = union(enum) {
 
         const leftLeaf = @This(){ .leaf = p.l.pop() };
         const unexpected = Parser.expect(leftLeaf.leaf, TokenType.numberLiteral);
-        if (unexpected != null) return r.Err(unexpected.?);
+        if (unexpected) |u| return r.Err(u);
 
         const semi = p.l.peek();
 
@@ -85,10 +85,10 @@ pub const Expression = union(enum) {
             return r.Ok(expr);
         } else {
             const unexpectedSymbol = Parser.expect(semi, TokenType.symbol);
-            if (unexpectedSymbol != null) return r.Err(unexpectedSymbol.?);
+            if (unexpectedSymbol) |u| return r.Err(u);
 
             const unexpectedSemi = Parser.expect(semi, TokenType.semicolon);
-            if (unexpectedSemi != null) return r.Err(unexpectedSemi.?);
+            if (unexpectedSemi) |u| return r.Err(u);
         }
         unreachable;
     }
@@ -258,7 +258,7 @@ const StatementReturn = struct {
 
         const separator = p.l.pop();
         const unexpected = Parser.expect(separator, TokenType.semicolon);
-        if (unexpected != null) return r.Err(unexpected.?);
+        if (unexpected) |u| return r.Err(u);
 
         return r.Ok(ret);
     }
@@ -292,26 +292,26 @@ pub const StatementFunc = struct {
 
         const name = p.l.pop();
         unexpected = Parser.expect(name, TokenType.iden);
-        if (unexpected != null) return r.Err(unexpected.?);
+        if (unexpected) |u| return r.Err(u);
         const funcLoc = name.loc;
 
         var separator = p.l.pop();
         unexpected = Parser.expect(separator, TokenType.openParen);
-        if (unexpected != null) return r.Err(unexpected.?);
+        if (unexpected) |u| return r.Err(u);
 
         // TODO: ARGS
 
         separator = p.l.pop();
         unexpected = Parser.expect(separator, TokenType.closeParen);
-        if (unexpected != null) return r.Err(unexpected.?);
+        if (unexpected) |u| return r.Err(u);
 
         const ret = p.l.pop();
         unexpected = Parser.expect(ret, TokenType.iden);
-        if (unexpected != null) return r.Err(unexpected.?);
+        if (unexpected) |u| return r.Err(u);
 
         separator = p.l.pop();
         unexpected = Parser.expect(separator, TokenType.openBrace);
-        if (unexpected != null) return r.Err(unexpected.?);
+        if (unexpected) |u| return r.Err(u);
 
         const state = try StatementFunc.parseBody(p);
         switch (state) {
@@ -321,7 +321,7 @@ pub const StatementFunc = struct {
 
         separator = p.l.pop();
         unexpected = Parser.expect(separator, TokenType.closeBrace);
-        if (unexpected != null) return r.Err(unexpected.?);
+        if (unexpected) |u| return r.Err(u);
 
         return r.Ok(StatementFunc{
             .name = name.str,
@@ -440,9 +440,8 @@ pub const Program = struct {
     pub fn toString(self: @This(), cont: *std.ArrayList(u8)) error{OutOfMemory}!void {
         var it = self.funcs.iterator();
 
-        var state = it.next();
-        while (state != null) : (state = it.next()) {
-            try state.?.value_ptr.toString(cont, 0);
+        while (it.next()) |state| {
+            try state.value_ptr.toString(cont, 0);
         }
     }
 };

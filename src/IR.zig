@@ -194,9 +194,8 @@ pub const SSA = struct {
     pub fn toString(self: @This(), cont: *std.ArrayList(u8)) error{OutOfMemory}!void {
         var it = self.funcs.iterator();
 
-        var state = it.next();
-        while (state != null) : (state = it.next()) {
-            try state.?.value_ptr.toString(cont, 0);
+        while (it.next()) |state| {
+            try state.value_ptr.toString(cont, 0);
         }
     }
 };
@@ -218,9 +217,8 @@ pub const IR = struct {
 
     pub fn toIR(self: *IR, m: tb.Module) error{OutOfMemory}!void {
         var it = self.program.funcs.iterator();
-        var c = it.next();
-        while (c != null) : (c = it.next()) {
-            const func = c.?.value_ptr.*;
+        while (it.next()) |c| {
+            const func = c.value_ptr.*;
             const f = try SSAFunction.transformToSSA(self.alloc, func, m);
 
             try self.ssa.funcs.put(f.name, f);

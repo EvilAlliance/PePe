@@ -149,13 +149,13 @@ pub const Function = struct {
     }
 
     pub inline fn codeGen(self: @This(), ws: ?Worklist, a: ?*Arena, f: *FeatureSet, emit_asm: bool) FunctionOutput {
-        const out = tb.codegen(self.f, if (ws != null) ws.?.ws else null, if (a != null) &a.?.arena else null, f, emit_asm) orelse unreachable;
+        const out = tb.codegen(self.f, if (ws) |w| w.ws else null, if (a) |arena| &arena.arena else null, f, emit_asm) orelse unreachable;
 
         return FunctionOutput{ .fo = out };
     }
 
     pub inline fn opt(self: @This(), ws: ?Worklist, perserve_types: bool) bool {
-        return tb.opt(self.f, if (ws != null) ws.?.ws else null, perserve_types);
+        return tb.opt(self.f, if (ws) |w| w.ws else null, perserve_types);
     }
 
     pub inline fn print(self: @This()) void {
@@ -171,7 +171,7 @@ pub const GraphBuilder = struct {
     g: *tb.GraphBuilder,
 
     pub inline fn enter(f: Function, section: ModuleSectionHandle, proto: *FunctionPrototype, ws: ?Worklist) @This() {
-        return @This(){ .g = tb.builderEnter(f.f, section, proto, if (ws != null) ws.?.ws else null) orelse unreachable };
+        return @This(){ .g = tb.builderEnter(f.f, section, proto, if (ws) |w| w.ws else null) orelse unreachable };
     }
 
     pub inline fn exit(self: @This()) void {

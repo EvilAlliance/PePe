@@ -90,7 +90,7 @@ fn writeAll(c: []const u8, arg: Arguments, name: []u8) void {
     };
 }
 
-fn generateExecutable(alloc: std.mem.Allocator, m: tb.Module, a: tb.Arena, path: []const u8) u8 {
+fn generateExecutable(alloc: std.mem.Allocator, m: tb.Module, a: *tb.Arena, path: []const u8) u8 {
     const eb = m.objectExport(a, tb.DebugFormat.NONE);
     if (!eb.toFile(("mainModule.o"))) {
         std.log.err("Could not export object to file", .{});
@@ -220,7 +220,8 @@ pub fn main() u8 {
 
     const path = getName(lexer.absPath, "");
 
-    var a = tb.Arena.create("For main Module");
+    var a: tb.Arena = undefined;
+    tb.Arena.create(&a, "For main Module");
     defer a.destroy();
 
     const startF = codeGen(m, ir.ssa) catch {
@@ -250,17 +251,17 @@ pub fn main() u8 {
 
         {
             var feature: tb.FeatureSet = undefined;
-            _ = startF.codeGen(ws, a, &feature, false);
+            _ = startF.codeGen(ws, &a, &feature, false);
         }
 
         while (func != null) : (func = funcIterator.next()) {
             var feature: tb.FeatureSet = undefined;
-            _ = func.?.func.codeGen(ws, a, &feature, false);
+            _ = func.?.func.codeGen(ws, &a, &feature, false);
         }
     }
 
     if (arguments.build) {
-        const r = generateExecutable(alloc, m, a, path);
+        const r = generateExecutable(alloc, m, &a, path);
         if (r != 0) return r;
     } else {
         const jit = tb.Jit.begin(m, 1024 ^ 3);

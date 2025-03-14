@@ -40,10 +40,8 @@ pub const createPTRN = tb.createPTRN;
 pub const Arena = struct {
     arena: tb.Arena,
 
-    pub inline fn create(tag: [*c]const u8) @This() {
-        var arena: Arena = undefined;
-        tb.arenaCreate(&arena.arena, tag);
-        return arena;
+    pub inline fn create(a: *Arena, tag: [*c]const u8) void {
+        tb.arenaCreate(&a.arena, tag);
     }
 
     pub inline fn destroy(self: *@This()) void {
@@ -94,8 +92,8 @@ pub const Module = struct {
         return tb.moduleIpo(self.m);
     }
 
-    pub inline fn objectExport(self: @This(), a: Arena, debugFmt: DebugFormat) ExportBuffer {
-        const eb = tb.moduleObjectExport(self.m, @constCast(&a.arena), debugFmt);
+    pub inline fn objectExport(self: @This(), a: *Arena, debugFmt: DebugFormat) ExportBuffer {
+        const eb = tb.moduleObjectExport(self.m, &a.arena, debugFmt);
         return ExportBuffer{ .eb = eb };
     }
 
@@ -150,8 +148,8 @@ pub const Function = struct {
         return GraphBuilder.enter(self, section, proto, ws);
     }
 
-    pub inline fn codeGen(self: @This(), ws: ?Worklist, a: ?Arena, f: *FeatureSet, emit_asm: bool) FunctionOutput {
-        const out = tb.codegen(self.f, if (ws != null) ws.?.ws else null, if (a != null) @constCast(&a.?.arena) else null, f, emit_asm) orelse unreachable;
+    pub inline fn codeGen(self: @This(), ws: ?Worklist, a: ?*Arena, f: *FeatureSet, emit_asm: bool) FunctionOutput {
+        const out = tb.codegen(self.f, if (ws != null) ws.?.ws else null, if (a != null) &a.?.arena else null, f, emit_asm) orelse unreachable;
 
         return FunctionOutput{ .fo = out };
     }

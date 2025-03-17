@@ -13,7 +13,7 @@ const Commnad = @import("./Util/Command.zig");
 const getArguments = ParseArguments.getArguments;
 const Arguments = ParseArguments.Arguments;
 const lex = Lexer.lex;
-const Parser = @import("Parser.zig");
+const Parser = @import("./Parser/Parser.zig");
 const IR = @import("IR.zig").IR;
 
 const tb = @import("./libs/tb/tb.zig");
@@ -156,7 +156,7 @@ pub fn main() u8 {
         return 0;
     }
 
-    var parser = Parser.Parser.init(alloc, &lexer);
+    var parser = Parser.init(alloc, &lexer);
     const unexpected = parser.parse() catch {
         std.log.err("Out of memory", .{});
         return 1;

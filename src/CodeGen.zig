@@ -11,7 +11,7 @@ const c = @cImport({
     @cInclude("stdio.h");
 });
 
-const Primitive = @import("./Parser.zig").Primitive;
+const Primitive = @import("./Parser/Parser.zig").Primitive;
 
 const SSA = IR.SSA;
 const SSAFunction = IR.SSAFunction;

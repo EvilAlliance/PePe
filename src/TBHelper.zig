@@ -1,5 +1,5 @@
 const tb = @import("libs/tb/tb.zig");
-const Primitive = @import("./Parser.zig").Primitive;
+const Primitive = @import("./Parser/Parser.zig").Primitive;
 
 const IR = @import("IR.zig");
 const SSAFunction = IR.SSAFunction;

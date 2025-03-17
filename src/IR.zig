@@ -1,8 +1,8 @@
 const std = @import("std");
-const Parser = @import("./Parser.zig");
+const Parser = @import("./Parser/Parser.zig");
 
 const Program = Parser.Program;
-const StatementFunc = Parser.StatementFunc;
+const Function = Parser.Function;
 const Statements = Parser.Statements;
 const Statement = Parser.Statement;
 const Expression = Parser.Expression;
@@ -142,7 +142,7 @@ pub const SSAFunction = struct {
     externSymbol: *tb.Symbol,
     prototype: *tb.FunctionPrototype,
 
-    fn transformToSSA(alloc: std.mem.Allocator, sf: StatementFunc, m: tb.Module) error{OutOfMemory}!SSAFunction {
+    fn transformToSSA(alloc: std.mem.Allocator, sf: Function, m: tb.Module) error{OutOfMemory}!SSAFunction {
         var f = SSAFunction{
             .name = sf.name,
             .body = std.ArrayList(SSABlock).init(alloc),

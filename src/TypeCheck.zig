@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const Parser = @import("Parser.zig");
+const Parser = @import("./Parser/Parser.zig");
 const Program = Parser.Program;
 const Primitive = Parser.Primitive;
 const Function = Parser.StatementFunc;

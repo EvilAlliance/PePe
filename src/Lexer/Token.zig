@@ -1,10 +1,10 @@
-const Location = @import("Location.zig");
-const Token = @import("Token.zig");
-
 const std = @import("std");
-
 const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
+
+const Lexer = @import("Lexer.zig");
+const Location = Lexer.Location;
+const Token = Lexer.Token;
 
 pub const TokenType = enum {
     openParen,

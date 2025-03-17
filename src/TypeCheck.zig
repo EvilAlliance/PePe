@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const Parser = @import("Parser.zig");
+const Parser = @import("./Parser/Parser.zig");
 const Program = Parser.Program;
 const Primitive = Parser.Primitive;
 const Function = Parser.StatementFunc;
@@ -24,10 +24,8 @@ pub fn typeCheck(p: Program) error{OutOfMemory}!bool {
     }
 
     var itFunc = p.funcs.iterator();
-    var func = itFunc.next();
-
-    while (func != null) : (func = itFunc.next()) {
-        const retType = func.?.value_ptr.returnType;
+    while (itFunc.next()) |func| {
+        const retType = func.value_ptr.returnType;
         if (retType.type != .bool or retType.type != .void) {
             if ((retType.type == .signed or retType.type == .unsigned) and retType.size % 8 != 0 and retType.size <= 64) {
                 err = true;
@@ -39,7 +37,7 @@ pub fn typeCheck(p: Program) error{OutOfMemory}!bool {
                 continue;
             }
         }
-        for (func.?.value_ptr.body.items) |stmt| {
+        for (func.value_ptr.body.items) |stmt| {
             switch (stmt) {
                 .ret => |ret| if (!retType.possibleValue(ret.expr)) {
                     err = true;

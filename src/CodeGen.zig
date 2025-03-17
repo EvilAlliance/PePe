@@ -4,7 +4,6 @@ const tb = @import("libs/tb/tb.zig");
 
 const tbHelper = @import("TBHelper.zig");
 const getDebugType = tbHelper.getDebugType;
-const getType = tbHelper.getType;
 
 const Intrinsic = @import("Intrinsics.zig").IntrinsicFn;
 
@@ -12,7 +11,7 @@ const c = @cImport({
     @cInclude("stdio.h");
 });
 
-const Primitive = @import("./Parser.zig").Primitive;
+const Primitive = @import("./Parser/Parser.zig").Primitive;
 
 const SSA = IR.SSA;
 const SSAFunction = IR.SSAFunction;
@@ -20,17 +19,16 @@ const SSAInstruction = IR.SSAInstruction;
 
 const CodeGen = struct {};
 
-pub fn codeGen(m: tb.Module, a: tb.Arena, ir: SSA) error{OutOfMemory}!void {
+pub fn codeGen(m: tb.Module, ir: SSA) error{OutOfMemory}!tb.Function {
     const ws = tb.Worklist.alloc();
     defer ws.free();
 
     const sectionText = m.getText();
 
     var funcIterator = ir.funcs.iterator();
-    var func = funcIterator.next();
 
-    while (func != null) : (func = funcIterator.next()) {
-        _ = codeGenFunction(m, ws, func.?.value_ptr.*);
+    while (funcIterator.next()) |func| {
+        _ = codeGenFunction(m, ws, func.value_ptr.*);
     }
 
     const startF = m.functionCreate("_start", tb.Linkage.PUBLIC);
@@ -54,8 +52,7 @@ pub fn codeGen(m: tb.Module, a: tb.Arena, ir: SSA) error{OutOfMemory}!void {
         g.ret(0, 0, null);
     }
 
-    var feature: tb.FeatureSet = undefined;
-    _ = startF.codeGen(ws, a, &feature, false);
+    return startF;
 }
 
 fn codeGenFunction(m: tb.Module, funcWS: tb.Worklist, f: SSAFunction) tb.Function {
@@ -65,6 +62,7 @@ fn codeGenFunction(m: tb.Module, funcWS: tb.Worklist, f: SSAFunction) tb.Functio
     const funcPrototype = f.prototype;
 
     const g = func.graphBuilderEnter(textSection, funcPrototype, funcWS);
+    defer g.exit();
 
     for (f.body.items) |block| {
         const insts: []SSAInstruction = block.body.items;
@@ -80,7 +78,7 @@ fn codeGenInstruction(g: tb.GraphBuilder, f: SSAFunction, inst: SSAInstruction) 
     switch (inst) {
         .ret => |ret| {
             std.log.warn("Only parsing expr of return value as unsigned and I assume there is a return of unsigned", .{});
-            var node = g.uint(getType(f.returnType), std.fmt.parseUnsigned(u64, ret.expr, 10) catch unreachable);
+            var node = ret.expr.codeGen(g, f);
             g.ret(0, 1, @ptrCast(&node));
         },
         .intrinsic => unreachable,

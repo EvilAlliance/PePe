@@ -1,8 +1,8 @@
 const std = @import("std");
-const Parser = @import("./Parser.zig");
+const Parser = @import("./Parser/Parser.zig");
 
 const Program = Parser.Program;
-const StatementFunc = Parser.StatementFunc;
+const Function = Parser.Function;
 const Statements = Parser.Statements;
 const Statement = Parser.Statement;
 const Expression = Parser.Expression;
@@ -37,7 +37,7 @@ pub const SSAIntrinsic = struct {
             if (i > 0)
                 try cont.appendSlice(", ");
 
-            try cont.appendSlice(arg);
+            try arg.toString(cont, d);
         }
 
         try cont.append(')');
@@ -47,9 +47,9 @@ pub const SSAIntrinsic = struct {
 };
 
 pub const SSAReturn = struct {
-    expr: Parser.Expression,
+    expr: *Parser.Expression,
 
-    fn init(expr: Parser.Expression) @This() {
+    fn init(expr: *Parser.Expression) @This() {
         return @This(){
             .expr = expr,
         };
@@ -61,7 +61,7 @@ pub const SSAReturn = struct {
 
         try cont.appendSlice("return ");
 
-        try cont.appendSlice(self.expr);
+        try self.expr.toString(cont, d);
 
         try cont.append('\n');
     }
@@ -142,7 +142,7 @@ pub const SSAFunction = struct {
     externSymbol: *tb.Symbol,
     prototype: *tb.FunctionPrototype,
 
-    fn transformToSSA(alloc: std.mem.Allocator, sf: StatementFunc, m: tb.Module) error{OutOfMemory}!SSAFunction {
+    fn transformToSSA(alloc: std.mem.Allocator, sf: Function, m: tb.Module) error{OutOfMemory}!SSAFunction {
         var f = SSAFunction{
             .name = sf.name,
             .body = std.ArrayList(SSABlock).init(alloc),
@@ -194,9 +194,8 @@ pub const SSA = struct {
     pub fn toString(self: @This(), cont: *std.ArrayList(u8)) error{OutOfMemory}!void {
         var it = self.funcs.iterator();
 
-        var state = it.next();
-        while (state != null) : (state = it.next()) {
-            try state.?.value_ptr.toString(cont, 0);
+        while (it.next()) |state| {
+            try state.value_ptr.toString(cont, 0);
         }
     }
 };
@@ -218,9 +217,8 @@ pub const IR = struct {
 
     pub fn toIR(self: *IR, m: tb.Module) error{OutOfMemory}!void {
         var it = self.program.funcs.iterator();
-        var c = it.next();
-        while (c != null) : (c = it.next()) {
-            const func = c.?.value_ptr.*;
+        while (it.next()) |c| {
+            const func = c.value_ptr.*;
             const f = try SSAFunction.transformToSSA(self.alloc, func, m);
 
             try self.ssa.funcs.put(f.name, f);

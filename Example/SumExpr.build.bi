@@ -10,7 +10,7 @@ _start([34m%2: [0mmem, [35m%3: [0mptr)
   return [35m%17[0m, [35m%3[0m
 main([34m%2: [0mmem, [35m%3: [0mptr)
   [36m%4[0m = callgraph.void 
-  return [34m%2[0m, [35m%3[0m, 1
+  return [34m%2[0m, [35m%3[0m, 2
 
 :b stderr 0
 

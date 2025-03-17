@@ -1,6 +1,6 @@
 const std = @import("std");
 const util = @import("Util.zig");
-const Lexer = @import("Lexer.zig");
+const Lexer = @import("./Lexer/Lexer.zig");
 const ParseArguments = @import("ParseArgs.zig");
 const typeCheck = @import("TypeCheck.zig").typeCheck;
 const codeGen = @import("CodeGen.zig").codeGen;
@@ -8,12 +8,12 @@ const codeGen = @import("CodeGen.zig").codeGen;
 const usage = @import("General.zig").usage;
 
 const Result = util.Result;
-const Commnad = util.Command;
+const Commnad = @import("./Util/Command.zig");
 
 const getArguments = ParseArguments.getArguments;
 const Arguments = ParseArguments.Arguments;
 const lex = Lexer.lex;
-const Parser = @import("Parser.zig");
+const Parser = @import("./Parser/Parser.zig");
 const IR = @import("IR.zig").IR;
 
 const tb = @import("./libs/tb/tb.zig");
@@ -62,10 +62,7 @@ fn getName(absPath: []const u8, extName: []const u8) []u8 {
             return "";
         }
     else
-        return std.fmt.bufPrint(&buf, "{s}{s}", .{ absPath[fileName + 1 .. ext], [1]u8{0} }) catch {
-            std.log.err("Name is to larger than {}\n", .{5 * 1024});
-            return "";
-        };
+        return @constCast(absPath[fileName + 1 .. ext]);
 }
 
 fn writeAll(c: []const u8, arg: Arguments, name: []u8) void {
@@ -93,7 +90,7 @@ fn writeAll(c: []const u8, arg: Arguments, name: []u8) void {
     };
 }
 
-fn generateExecutable(alloc: std.mem.Allocator, m: tb.Module, a: tb.Arena, path: []const u8) u8 {
+fn generateExecutable(alloc: std.mem.Allocator, m: tb.Module, a: *tb.Arena, path: []const u8) u8 {
     const eb = m.objectExport(a, tb.DebugFormat.NONE);
     if (!eb.toFile(("mainModule.o"))) {
         std.log.err("Could not export object to file", .{});
@@ -138,7 +135,6 @@ pub fn main() u8 {
 
     if (arguments.run and arguments.stdout) {
         std.log.warn("Subcommand run wont print anything", .{});
-        return 1;
     }
 
     std.log.info("Lexing and Parsing", .{});
@@ -146,6 +142,7 @@ pub fn main() u8 {
         usage();
         return 1;
     };
+    defer lexer.deinit();
 
     if (arguments.lex) {
         const lexContent = lexer.toString(alloc) catch {
@@ -159,7 +156,7 @@ pub fn main() u8 {
         return 0;
     }
 
-    var parser = Parser.Parser.init(alloc, &lexer);
+    var parser = Parser.init(alloc, &lexer);
     const unexpected = parser.parse() catch {
         std.log.err("Out of memory", .{});
         return 1;
@@ -224,10 +221,11 @@ pub fn main() u8 {
 
     const path = getName(lexer.absPath, "");
 
-    var a = tb.Arena.create("For main Module");
+    var a: tb.Arena = undefined;
+    tb.Arena.create(&a, "For main Module");
     defer a.destroy();
 
-    codeGen(m, a, ir.ssa) catch {
+    const startF = codeGen(m, ir.ssa) catch {
         std.log.err("Out of memory", .{});
         return 1;
     };
@@ -236,10 +234,10 @@ pub fn main() u8 {
         std.log.info("Finished in {}", .{std.fmt.fmtDuration(timer.lap())});
 
     if (!arguments.run and arguments.stdout) {
+        startF.print();
         var funcsIterator = ir.ssa.funcs.valueIterator();
-        var func = funcsIterator.next();
-        while (func != null) : (func = funcsIterator.next()) {
-            func.?.func.print();
+        while (funcsIterator.next()) |func| {
+            func.func.print();
         }
         return 0;
     }
@@ -249,16 +247,19 @@ pub fn main() u8 {
         defer ws.free();
 
         var funcIterator = ir.ssa.funcs.valueIterator();
-        var func = funcIterator.next();
-
-        while (func != null) : (func = funcIterator.next()) {
+        {
             var feature: tb.FeatureSet = undefined;
-            _ = func.?.func.codeGen(ws, a, &feature, false);
+            _ = startF.codeGen(ws, &a, &feature, false);
+        }
+
+        while (funcIterator.next()) |func| {
+            var feature: tb.FeatureSet = undefined;
+            _ = func.func.codeGen(ws, &a, &feature, false);
         }
     }
 
     if (arguments.build) {
-        const r = generateExecutable(alloc, m, a, path);
+        const r = generateExecutable(alloc, m, &a, path);
         if (r != 0) return r;
     } else {
         const jit = tb.Jit.begin(m, 1024 ^ 3);

@@ -20,6 +20,9 @@ pub const ExternalType = tb.ExternalType;
 pub const Symbol = tb.Symbol;
 pub const FeatureSet = tb.FeatureSet;
 
+pub const NodeType = tb.NodeTypeEnum;
+pub const ArithmeticBehavior = tb.ArithmeticBehavior;
+
 pub const typeTuple = tb.typeTuple;
 pub const typeControl = tb.typeControl;
 pub const typeVoid = tb.typeVoid;
@@ -37,10 +40,8 @@ pub const createPTRN = tb.createPTRN;
 pub const Arena = struct {
     arena: tb.Arena,
 
-    pub inline fn create(tag: [*c]const u8) @This() {
-        var arena: Arena = undefined;
-        tb.arenaCreate(&arena.arena, tag);
-        return arena;
+    pub inline fn create(a: *Arena, tag: [*c]const u8) void {
+        tb.arenaCreate(&a.arena, tag);
     }
 
     pub inline fn destroy(self: *@This()) void {
@@ -91,8 +92,8 @@ pub const Module = struct {
         return tb.moduleIpo(self.m);
     }
 
-    pub inline fn objectExport(self: @This(), a: Arena, debugFmt: DebugFormat) ExportBuffer {
-        const eb = tb.moduleObjectExport(self.m, @constCast(&a.arena), debugFmt);
+    pub inline fn objectExport(self: @This(), a: *Arena, debugFmt: DebugFormat) ExportBuffer {
+        const eb = tb.moduleObjectExport(self.m, &a.arena, debugFmt);
         return ExportBuffer{ .eb = eb };
     }
 
@@ -147,18 +148,22 @@ pub const Function = struct {
         return GraphBuilder.enter(self, section, proto, ws);
     }
 
-    pub inline fn codeGen(self: @This(), ws: ?Worklist, a: ?Arena, f: *FeatureSet, emit_asm: bool) FunctionOutput {
-        const out = tb.codegen(self.f, if (ws != null) ws.?.ws else null, if (a != null) @constCast(&a.?.arena) else null, f, emit_asm) orelse unreachable;
+    pub inline fn codeGen(self: @This(), ws: ?Worklist, a: ?*Arena, f: *FeatureSet, emit_asm: bool) FunctionOutput {
+        const out = tb.codegen(self.f, if (ws) |w| w.ws else null, if (a) |arena| &arena.arena else null, f, emit_asm) orelse unreachable;
 
         return FunctionOutput{ .fo = out };
     }
 
     pub inline fn opt(self: @This(), ws: ?Worklist, perserve_types: bool) bool {
-        return tb.opt(self.f, if (ws != null) ws.?.ws else null, perserve_types);
+        return tb.opt(self.f, if (ws) |w| w.ws else null, perserve_types);
     }
 
     pub inline fn print(self: @This()) void {
         tb.print(self.f);
+    }
+
+    pub inline fn printDump(self: @This()) void {
+        tb.printDump(self.f);
     }
 };
 
@@ -166,7 +171,7 @@ pub const GraphBuilder = struct {
     g: *tb.GraphBuilder,
 
     pub inline fn enter(f: Function, section: ModuleSectionHandle, proto: *FunctionPrototype, ws: ?Worklist) @This() {
-        return @This(){ .g = tb.builderEnter(f.f, section, proto, if (ws != null) ws.?.ws else null) orelse unreachable };
+        return @This(){ .g = tb.builderEnter(f.f, section, proto, if (ws) |w| w.ws else null) orelse unreachable };
     }
 
     pub inline fn exit(self: @This()) void {
@@ -187,6 +192,10 @@ pub const GraphBuilder = struct {
 
     pub inline fn uint(self: @This(), dt: DataType, x: u64) *Node {
         return tb.builderUint(self.g, dt, x) orelse unreachable;
+    }
+
+    pub inline fn binopInt(self: @This(), t: NodeType, a: *Node, b: *Node, ab: ArithmeticBehavior) *Node {
+        return tb.builderBinopInt(self.g, @intFromEnum(t), a, b, ab) orelse unreachable;
     }
 
     pub inline fn ret(self: @This(), mem_var: i32, arg_count: i32, args: [*c]?*Node) void {

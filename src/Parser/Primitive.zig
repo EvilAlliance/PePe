@@ -1,7 +1,8 @@
 const std = @import("std");
 const assert = std.debug.assert;
 
-const Expression = @import("./Expression.zig").Expression;
+const Parser = @import("./Parser.zig");
+const Expression = Parser.Expression;
 
 type: enum {
     unsigned,

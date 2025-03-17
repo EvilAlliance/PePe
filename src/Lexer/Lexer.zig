@@ -5,7 +5,7 @@ const Arguments = @import("./../ParseArgs.zig").Arguments;
 
 pub const Location = @import("./Location.zig");
 pub const Token = @import("./Token.zig");
-pub const TokenType = @import("./Token.zig");
+pub const TokenType = Token.TokenType;
 
 const Allocator = std.mem.Allocator;
 const print = std.debug.print;

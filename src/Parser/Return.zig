@@ -7,7 +7,7 @@ const Location = Lexer.Location;
 const Expression = @import("./Expression.zig").Expression;
 
 const Parser = @import("./Parser.zig");
-const UnexpectedToken = @import("./UnexpectedToken.zig");
+const UnexpectedToken = Parser.UnexpectedToken;
 
 const Util = @import("../Util.zig");
 const Result = Util.Result;

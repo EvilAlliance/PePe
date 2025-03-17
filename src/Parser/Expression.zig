@@ -1,7 +1,7 @@
 const std = @import("std");
 
 const Parser = @import("Parser.zig");
-const UnexpectedToken = @import("UnexpectedToken.zig");
+const UnexpectedToken = Parser.UnexpectedToken;
 
 const Lexer = @import("../Lexer/Lexer.zig");
 const Token = Lexer.Token;

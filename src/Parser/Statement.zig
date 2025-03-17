@@ -1,9 +1,9 @@
 const std = @import("std");
 
-pub const Function = @import("./Function.zig");
-pub const Return = @import("./Return.zig");
 pub const Parser = @import("./Parser.zig");
-pub const UnexpectedToken = @import("./UnexpectedToken.zig");
+pub const Function = Parser.Function;
+pub const Return = Parser.Return;
+pub const UnexpectedToken = Parser.UnexpectedToken;
 
 pub const Lexer = @import("../Lexer/Lexer.zig");
 pub const Token = Lexer.Token;

@@ -2,9 +2,9 @@ const std = @import("std");
 const assert = std.debug.assert;
 
 const Parser = @import("./Parser.zig");
-const Primitive = @import("./Primitive.zig");
-const UnexpectedToken = @import("./UnexpectedToken.zig");
-const Statement = @import("./Statement.zig").Statement;
+const Primitive = Parser.Primitive;
+const UnexpectedToken = Parser.UnexpectedToken;
+const Statement = Parser.Statement;
 const Statements = Parser.Statements;
 
 const Lexer = @import("../Lexer/Lexer.zig");

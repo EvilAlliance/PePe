@@ -1,6 +1,6 @@
 const std = @import("std");
 const util = @import("Util.zig");
-const Lexer = @import("Lexer.zig");
+const Lexer = @import("./Lexer/Lexer.zig");
 const ParseArguments = @import("ParseArgs.zig");
 const typeCheck = @import("TypeCheck.zig").typeCheck;
 const codeGen = @import("CodeGen.zig").codeGen;
@@ -8,7 +8,7 @@ const codeGen = @import("CodeGen.zig").codeGen;
 const usage = @import("General.zig").usage;
 
 const Result = util.Result;
-const Commnad = util.Command;
+const Commnad = @import("./Util/Command.zig");
 
 const getArguments = ParseArguments.getArguments;
 const Arguments = ParseArguments.Arguments;
@@ -142,6 +142,7 @@ pub fn main() u8 {
         usage();
         return 1;
     };
+    defer lexer.deinit();
 
     if (arguments.lex) {
         const lexContent = lexer.toString(alloc) catch {

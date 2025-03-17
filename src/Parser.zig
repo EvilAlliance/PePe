@@ -1,5 +1,5 @@
 const std = @import("std");
-const LEXER = @import("Lexer.zig");
+const Lexer = @import("./Lexer/Lexer.zig");
 const util = @import("Util.zig");
 const gen = @import("General.zig");
 const tb = @import("./libs/tb/tb.zig");
@@ -12,10 +12,9 @@ const message = gen.message;
 const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
 
-const TokenType = LEXER.TokenType;
-const Token = LEXER.Token;
-const Lexer = LEXER.Lexer;
-const Location = LEXER.Location;
+const Token = Lexer.Token;
+const TokenType = Lexer.TokenType;
+const Location = Lexer.Location;
 
 const Result = util.Result;
 
@@ -35,7 +34,7 @@ pub const Expression = union(enum) {
         const r = Result(*Expression, UnexpectedToken);
 
         const leftLeaf = @This(){ .leaf = p.l.pop() };
-        const unexpected = Parser.expect(leftLeaf.leaf, TokenType.numberLiteral);
+        const unexpected = Parser.expect(leftLeaf.leaf, .numberLiteral);
         if (unexpected) |u| return r.Err(u);
 
         const semi = p.l.peek();
@@ -84,10 +83,10 @@ pub const Expression = union(enum) {
 
             return r.Ok(expr);
         } else {
-            const unexpectedSymbol = Parser.expect(semi, TokenType.symbol);
+            const unexpectedSymbol = Parser.expect(semi, .symbol);
             if (unexpectedSymbol) |u| return r.Err(u);
 
-            const unexpectedSemi = Parser.expect(semi, TokenType.semicolon);
+            const unexpectedSemi = Parser.expect(semi, .semicolon);
             if (unexpectedSemi) |u| return r.Err(u);
         }
         unreachable;
@@ -240,7 +239,7 @@ const StatementReturn = struct {
         const r = Result(StatementReturn, UnexpectedToken);
 
         const retToken = p.l.peek();
-        assert(retToken.type == TokenType.ret);
+        assert(retToken.type == .ret);
         const retLoc = retToken.loc;
 
         _ = p.l.pop();
@@ -257,7 +256,7 @@ const StatementReturn = struct {
         };
 
         const separator = p.l.pop();
-        const unexpected = Parser.expect(separator, TokenType.semicolon);
+        const unexpected = Parser.expect(separator, .semicolon);
         if (unexpected) |u| return r.Err(u);
 
         return r.Ok(ret);
@@ -286,31 +285,31 @@ pub const StatementFunc = struct {
         var unexpected: ?UnexpectedToken = undefined;
 
         const func = p.l.peek();
-        assert(func.type == TokenType.func);
+        assert(func.type == .func);
 
         _ = p.l.pop();
 
         const name = p.l.pop();
-        unexpected = Parser.expect(name, TokenType.iden);
+        unexpected = Parser.expect(name, .iden);
         if (unexpected) |u| return r.Err(u);
         const funcLoc = name.loc;
 
         var separator = p.l.pop();
-        unexpected = Parser.expect(separator, TokenType.openParen);
+        unexpected = Parser.expect(separator, .openParen);
         if (unexpected) |u| return r.Err(u);
 
         // TODO: ARGS
 
         separator = p.l.pop();
-        unexpected = Parser.expect(separator, TokenType.closeParen);
+        unexpected = Parser.expect(separator, .closeParen);
         if (unexpected) |u| return r.Err(u);
 
         const ret = p.l.pop();
-        unexpected = Parser.expect(ret, TokenType.iden);
+        unexpected = Parser.expect(ret, .iden);
         if (unexpected) |u| return r.Err(u);
 
         separator = p.l.pop();
-        unexpected = Parser.expect(separator, TokenType.openBrace);
+        unexpected = Parser.expect(separator, .openBrace);
         if (unexpected) |u| return r.Err(u);
 
         const state = try StatementFunc.parseBody(p);
@@ -320,7 +319,7 @@ pub const StatementFunc = struct {
         }
 
         separator = p.l.pop();
-        unexpected = Parser.expect(separator, TokenType.closeBrace);
+        unexpected = Parser.expect(separator, .closeBrace);
         if (unexpected) |u| return r.Err(u);
 
         return r.Ok(StatementFunc{
@@ -338,7 +337,7 @@ pub const StatementFunc = struct {
 
         var t = p.l.peek();
 
-        while (t.type != TokenType.closeBrace) : (t = p.l.peek()) {
+        while (t.type != .closeBrace) : (t = p.l.peek()) {
             const state = Statement.parse(p, t);
 
             switch (state) {
@@ -387,19 +386,19 @@ pub const Statement = union(enum) {
     fn parse(p: *Parser, t: Token) Result(Statement, UnexpectedToken) {
         const r = Result(Statement, UnexpectedToken);
         switch (t.type) {
-            TokenType.ret => {
+            .ret => {
                 const state = StatementReturn.parse(p);
                 switch (state) {
                     .ok => return r.Ok(Statement{ .ret = state.ok }),
                     .err => return r.Err(state.err),
                 }
             },
-            TokenType.EOF => {
-                const unexpected = Parser.expect(t, TokenType.closeBrace);
+            .EOF => {
+                const unexpected = Parser.expect(t, .closeBrace);
                 return r.Err(unexpected.?);
             },
             else => {
-                const unexpected = Parser.expect(t, TokenType.any);
+                const unexpected = Parser.expect(t, .any);
                 return r.Err(unexpected.?);
             },
         }
@@ -420,7 +419,7 @@ const UnexpectedToken = struct {
     found: TokenType,
     path: []const u8,
     absPath: []const u8,
-    loc: LEXER.Location,
+    loc: Location,
 
     pub fn display(self: UnexpectedToken) void {
         std.log.err("Expected: {},\nFound: {},\nIn:{s}:{}:{}\n", .{
@@ -480,9 +479,9 @@ pub const Parser = struct {
 
     pub fn parseGlobalScope(self: *Parser) error{OutOfMemory}!?UnexpectedToken {
         var t = self.l.peek();
-        if (t.type == TokenType.EOF) return null;
-        while (t.type != TokenType.EOF) : (t = self.l.peek()) {
-            if (t.type == TokenType.func) {
+        if (t.type == .EOF) return null;
+        while (t.type != .EOF) : (t = self.l.peek()) {
+            if (t.type == .func) {
                 const r = try StatementFunc.parse(self);
                 switch (r) {
                     .ok => try self.program.funcs.put(r.ok.name, r.ok),
@@ -492,7 +491,7 @@ pub const Parser = struct {
             }
         }
 
-        return expect(t, TokenType.any);
+        return expect(t, .any);
     }
 
     pub fn toString(self: *Parser, alloc: std.mem.Allocator) error{OutOfMemory}!std.ArrayList(u8) {

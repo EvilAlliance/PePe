@@ -31,53 +31,80 @@ pub const Expression = union(enum) {
     pub fn parse(p: *Parser) Result(*Expression, UnexpectedToken) {
         const r = Result(*Expression, UnexpectedToken);
 
-        const leftLeaf = @This(){ .leaf = p.l.pop() };
-        const unexpected = Parser.expect(leftLeaf.leaf, .numberLiteral);
+        const leaf = @This(){ .leaf = p.l.pop() };
+        var unexpected = Parser.expect(leaf.leaf, .numberLiteral);
         if (unexpected) |u| return r.Err(u);
 
         const semi = p.l.peek();
 
+        const leftLeaf = Util.dupe(p.alloc, leaf) catch {
+            std.log.err("Out of memory", .{});
+            // TODO: Change this horrible thing;
+            std.process.exit(1);
+        };
         if (semi.type == .semicolon) {
-            const expr = p.alloc.create(Expression) catch {
-                std.log.err("Out of memory", .{});
-                std.process.exit(1);
-            };
-
-            expr.* = leftLeaf;
-
-            return r.Ok(expr);
+            return r.Ok(leftLeaf);
         } else if (semi.type == .symbol) {
-            var addingSymbol = p.l.pop();
-            var symbol = addingSymbol;
-            addingSymbol = p.l.peek();
+            var symbol = p.l.pop();
+            var addingSymbol = p.l.peek();
             while (addingSymbol.type == .symbol) : (addingSymbol = p.l.peek()) {
                 _ = p.l.pop();
                 symbol.str = symbol.loc.content[symbol.loc.i..addingSymbol.loc.i];
             }
 
-            const rightLeaf = parse(p);
+            const potentailRightLeaf = @This(){ .leaf = p.l.pop() };
+            unexpected = Parser.expect(leaf.leaf, .numberLiteral);
+            if (unexpected) |u| return r.Err(u);
 
-            switch (rightLeaf) {
-                .err => return rightLeaf,
-                .ok => {},
-            }
-
-            const expr = p.alloc.create(Expression) catch {
+            const rightLeaf = Util.dupe(p.alloc, potentailRightLeaf) catch {
                 std.log.err("Out of memory", .{});
+                // TODO: Change this horrible thing;
                 std.process.exit(1);
             };
 
-            expr.* = .{
+            var expr = Util.dupe(p.alloc, @This(){
                 .bin = .{
                     .op = symbol,
-                    .left = p.alloc.create(Expression) catch {
-                        std.log.err("Out of memory", .{});
-                        std.process.exit(1);
-                    },
-                    .right = rightLeaf.ok,
+                    .left = leftLeaf,
+                    .right = rightLeaf,
                 },
+            }) catch {
+                std.log.err("Out of memory", .{});
+                // TODO: Change this horrible thing;
+                std.process.exit(1);
             };
-            expr.bin.left.* = leftLeaf;
+
+            var nextToken = p.l.peek();
+            while (nextToken.type != .semicolon) : (nextToken = p.l.peek()) {
+                var newSymbol = p.l.pop();
+                addingSymbol = p.l.peek();
+                while (addingSymbol.type == .symbol) : (addingSymbol = p.l.peek()) {
+                    _ = p.l.pop();
+                    newSymbol.str = symbol.loc.content[symbol.loc.i..addingSymbol.loc.i];
+                }
+
+                const l = @This(){ .leaf = p.l.pop() };
+                unexpected = Parser.expect(leaf.leaf, .numberLiteral);
+                if (unexpected) |u| return r.Err(u);
+
+                const newLeaf = Util.dupe(p.alloc, l) catch {
+                    std.log.err("Out of memory", .{});
+                    // TODO: Change this horrible thing;
+                    std.process.exit(1);
+                };
+
+                expr = Util.dupe(p.alloc, @This(){
+                    .bin = .{
+                        .op = newSymbol,
+                        .left = expr,
+                        .right = newLeaf,
+                    },
+                }) catch {
+                    std.log.err("Out of memory", .{});
+                    // TODO: Change this horrible thing;
+                    std.process.exit(1);
+                };
+            }
 
             return r.Ok(expr);
         } else {

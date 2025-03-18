@@ -7,18 +7,21 @@ const Return = IR.Return;
 const Parser = @import("../Parser/Parser.zig");
 const Statement = Parser.Statement;
 
+const tb = @import("../libs/tb/tb.zig");
+const tbHelper = @import("../TBHelper.zig");
+
 pub const Instruction = union(enum) {
     intrinsic: Intrinsic,
     ret: Return,
 
-    pub fn toSSA(s: Statement) error{OutOfMemory}!@This() {
-        switch (s) {
+    pub fn codeGen(self: @This(), g: tb.GraphBuilder, f: IR.Function) void {
+        switch (self) {
             .ret => |ret| {
-                return @This(){
-                    .ret = Return.init(ret.expr),
-                };
+                std.log.warn("Only parsing expr of return value as unsigned and I assume there is a return of unsigned", .{});
+                var node = ret.expr.codeGen(g, tbHelper.getType(f.returnType));
+                g.ret(0, 1, @ptrCast(&node));
             },
-            .func => |_| unreachable,
+            .intrinsic => unreachable,
         }
     }
 

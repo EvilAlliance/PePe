@@ -9,6 +9,8 @@ const Expression = @import("./Expression.zig").Expression;
 const Parser = @import("./Parser.zig");
 const UnexpectedToken = Parser.UnexpectedToken;
 
+pub const IR = @import("../IR/IR.zig");
+
 const Util = @import("../Util.zig");
 const Result = Util.Result;
 
@@ -40,6 +42,10 @@ pub fn parse(p: *Parser) Result(@This(), UnexpectedToken) {
     if (unexpected) |u| return r.Err(u);
 
     return r.Ok(ret);
+}
+
+pub fn toIR(self: @This()) IR.Return {
+    return IR.Return.init(self.expr);
 }
 
 pub fn toString(self: @This(), cont: *std.ArrayList(u8), d: u64) error{OutOfMemory}!void {

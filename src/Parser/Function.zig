@@ -10,6 +10,11 @@ const Statements = Parser.Statements;
 const Lexer = @import("../Lexer/Lexer.zig");
 const Location = @import("../Lexer/Location.zig");
 
+const IR = @import("../IR/IR.zig");
+
+const tb = @import("../libs/tb/tb.zig");
+const tbHelper = @import("../TBHelper.zig");
+
 const Util = @import("../Util.zig");
 const Result = Util.Result;
 
@@ -87,6 +92,17 @@ fn parseBody(p: *Parser) error{OutOfMemory}!Result(Statements, UnexpectedToken) 
     }
 
     return r.Ok(statements);
+}
+
+pub fn toIR(self: @This(), alloc: std.mem.Allocator, prog: *IR.Program, m: tb.Module) error{OutOfMemory}!IR.Function {
+    var f = IR.Function.init(alloc, self, m);
+    for (self.body.items) |stmt| {
+        const inst = try stmt.toIR(alloc, prog, m);
+        if (inst) |i|
+            try f.body.append(i);
+    }
+
+    return f;
 }
 
 pub fn toString(self: @This(), cont: *std.ArrayList(u8), d: u64) error{OutOfMemory}!void {

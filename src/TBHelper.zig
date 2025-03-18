@@ -1,7 +1,7 @@
 const tb = @import("libs/tb/tb.zig");
 const Primitive = @import("./Parser/Parser.zig").Primitive;
 
-const IR = @import("IR.zig");
+const IR = @import("IR/IR.zig");
 const SSAFunction = IR.SSAFunction;
 
 pub fn getType(t: Primitive) tb.DataType {

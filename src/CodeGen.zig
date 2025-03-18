@@ -1,11 +1,11 @@
 const std = @import("std");
-const IR = @import("IR.zig");
-const tb = @import("libs/tb/tb.zig");
 
+const IR = @import("./IR/IR.zig");
+const IntrinsicFn = @import("IR/IR.zig").Intrinsic.Function;
+
+const tb = @import("libs/tb/tb.zig");
 const tbHelper = @import("TBHelper.zig");
 const getDebugType = tbHelper.getDebugType;
-
-const Intrinsic = @import("Intrinsics.zig").IntrinsicFn;
 
 const c = @cImport({
     @cInclude("stdio.h");
@@ -13,13 +13,9 @@ const c = @cImport({
 
 const Primitive = @import("./Parser/Parser.zig").Primitive;
 
-const SSA = IR.SSA;
-const SSAFunction = IR.SSAFunction;
-const SSAInstruction = IR.SSAInstruction;
-
 const CodeGen = struct {};
 
-pub fn codeGen(m: tb.Module, ir: SSA) error{OutOfMemory}!tb.Function {
+pub fn codeGen(m: tb.Module, ir: IR.Program) error{OutOfMemory}!tb.Function {
     const ws = tb.Worklist.alloc();
     defer ws.free();
 
@@ -45,7 +41,7 @@ pub fn codeGen(m: tb.Module, ir: SSA) error{OutOfMemory}!tb.Function {
 
         const ret = g.call(mainPrototype, 0, g.symbol(mainExtern), 0, null);
 
-        const exit = comptime Intrinsic.get("@exit").?;
+        const exit = comptime IntrinsicFn.get("@exit").?;
 
         _ = exit(g, ret, 1);
 
@@ -55,7 +51,7 @@ pub fn codeGen(m: tb.Module, ir: SSA) error{OutOfMemory}!tb.Function {
     return startF;
 }
 
-fn codeGenFunction(m: tb.Module, funcWS: tb.Worklist, f: SSAFunction) tb.Function {
+fn codeGenFunction(m: tb.Module, funcWS: tb.Worklist, f: IR.Function) tb.Function {
     const textSection = m.getText();
 
     const func = f.func;
@@ -65,7 +61,7 @@ fn codeGenFunction(m: tb.Module, funcWS: tb.Worklist, f: SSAFunction) tb.Functio
     defer g.exit();
 
     for (f.body.items) |block| {
-        const insts: []SSAInstruction = block.body.items;
+        const insts: []IR.Instruction = block.body.items;
         for (insts) |inst| {
             codeGenInstruction(g, f, inst);
         }
@@ -74,7 +70,7 @@ fn codeGenFunction(m: tb.Module, funcWS: tb.Worklist, f: SSAFunction) tb.Functio
     return func;
 }
 
-fn codeGenInstruction(g: tb.GraphBuilder, f: SSAFunction, inst: SSAInstruction) void {
+fn codeGenInstruction(g: tb.GraphBuilder, f: IR.Function, inst: IR.Instruction) void {
     switch (inst) {
         .ret => |ret| {
             std.log.warn("Only parsing expr of return value as unsigned and I assume there is a return of unsigned", .{});

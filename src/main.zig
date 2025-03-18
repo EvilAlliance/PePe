@@ -14,7 +14,7 @@ const getArguments = ParseArguments.getArguments;
 const Arguments = ParseArguments.Arguments;
 const lex = Lexer.lex;
 const Parser = @import("./Parser/Parser.zig");
-const IR = @import("IR.zig").IR;
+const IR = @import("IR/IR.zig");
 
 const tb = @import("./libs/tb/tb.zig");
 
@@ -149,6 +149,7 @@ pub fn main() u8 {
             std.log.err("Out of memory", .{});
             return 1;
         };
+        defer lexContent.deinit();
 
         const name = getName(lexer.absPath, "lex");
         writeAll(lexContent.items, arguments, name);
@@ -157,6 +158,7 @@ pub fn main() u8 {
     }
 
     var parser = Parser.init(alloc, &lexer);
+    defer parser.deinit();
     const unexpected = parser.parse() catch {
         std.log.err("Out of memory", .{});
         return 1;
@@ -175,6 +177,7 @@ pub fn main() u8 {
             std.log.err("Out of memory", .{});
             return 1;
         };
+        defer cont.deinit();
 
         const name = getName(lexer.absPath, "parse");
         writeAll(cont.items, arguments, name);
@@ -194,6 +197,7 @@ pub fn main() u8 {
 
     std.log.info("Intermediate Represetation", .{});
     var ir = IR.init(&parser.program, alloc);
+    defer ir.deinit();
 
     const m = tb.Module.create(tb.Arch.X86_64, tb.System.LINUX, arguments.run);
 
@@ -210,6 +214,7 @@ pub fn main() u8 {
             std.log.err("Out of memory", .{});
             return 1;
         };
+        defer cont.deinit();
 
         const name = getName(lexer.absPath, "ir");
         writeAll(cont.items, arguments, name);

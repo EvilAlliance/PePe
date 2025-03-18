@@ -14,7 +14,7 @@ const getArguments = ParseArguments.getArguments;
 const Arguments = ParseArguments.Arguments;
 const lex = Lexer.lex;
 const Parser = @import("./Parser/Parser.zig");
-const IR = @import("IR.zig").IR;
+const IR = @import("IR/IR.zig");
 
 const tb = @import("./libs/tb/tb.zig");
 

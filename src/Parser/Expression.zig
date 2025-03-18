@@ -9,7 +9,7 @@ const Token = Lexer.Token;
 const Util = @import("../Util.zig");
 const Result = Util.Result;
 
-const SSA = @import("../IR.zig");
+const IR = @import("../IR/IR.zig");
 
 const tb = @import("../libs/tb/tb.zig");
 
@@ -90,7 +90,7 @@ pub const Expression = union(enum) {
         unreachable;
     }
 
-    pub fn codeGen(self: @This(), g: tb.GraphBuilder, f: SSA.SSAFunction) *tb.Node {
+    pub fn codeGen(self: @This(), g: tb.GraphBuilder, f: IR.Function) *tb.Node {
         return switch (self) {
             .una => |_| unreachable,
             .bin => |b| {

@@ -6,7 +6,6 @@ const util = @import("../Util.zig");
 const gen = @import("../General.zig");
 const tb = @import("../libs/tb/tb.zig");
 const tbHelper = @import("../TBHelper.zig");
-const SSA = @import("../IR.zig");
 
 const getType = tbHelper.getType;
 

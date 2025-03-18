@@ -35,10 +35,12 @@ pub fn init(alloc: Allocator, l: *Lexer) @This() {
     return @This(){
         .alloc = alloc,
         .l = l,
-        .program = Program{
-            .funcs = std.StringArrayHashMap(Function).init(alloc),
-        },
+        .program = Program.init(alloc),
     };
+}
+
+pub fn deinit(self: *@This()) void {
+    self.program.deinit();
 }
 
 pub fn parse(self: *@This()) error{OutOfMemory}!?UnexpectedToken {

@@ -12,3 +12,13 @@ pub fn toString(self: @This(), cont: *std.ArrayList(u8)) error{OutOfMemory}!void
         try state.value_ptr.toString(cont, 0);
     }
 }
+
+pub fn init(alloc: std.mem.Allocator) @This() {
+    return .{
+        .funcs = std.StringHashMap(Function).init(alloc),
+    };
+}
+
+pub fn deinit(self: *@This()) void {
+    self.funcs.deinit();
+}

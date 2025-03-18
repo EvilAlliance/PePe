@@ -24,10 +24,12 @@ pub fn init(p: *Parser.Program, alloc: std.mem.Allocator) @This() {
     return @This(){
         .alloc = alloc,
         .program = p,
-        .ssa = Program{
-            .funcs = std.StringHashMap(Function).init(alloc),
-        },
+        .ssa = Program.init(alloc),
     };
+}
+
+pub fn deinit(self: *@This()) void {
+    self.ssa.deinit();
 }
 
 pub fn toIR(self: *@This(), m: tb.Module) error{OutOfMemory}!void {

@@ -194,6 +194,10 @@ pub const GraphBuilder = struct {
         return tb.builderUint(self.g, dt, x) orelse unreachable;
     }
 
+    pub inline fn sint(self: @This(), dt: DataType, x: i64) *Node {
+        return tb.builderSint(self.g, dt, x) orelse unreachable;
+    }
+
     pub inline fn binopInt(self: @This(), t: NodeType, a: *Node, b: *Node, ab: ArithmeticBehavior) *Node {
         return tb.builderBinopInt(self.g, @intFromEnum(t), a, b, ab) orelse unreachable;
     }

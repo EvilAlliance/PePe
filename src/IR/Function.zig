@@ -5,32 +5,28 @@ const Primitive = Parser.Primitive;
 const Function = Parser.Function;
 
 const IR = @import("IR.zig");
-const Block = IR.Block;
+const Instruction = IR.Instruction;
 
 const tb = @import("../libs/tb/tb.zig");
 const tbHelper = @import("../TBHelper.zig");
 
 name: []const u8,
 //args: void,
-body: std.ArrayList(Block),
+body: std.ArrayList(Instruction),
 returnType: Primitive,
 func: tb.Function,
 externSymbol: *tb.Symbol,
 prototype: *tb.FunctionPrototype,
 
-pub fn transformToSSA(alloc: std.mem.Allocator, sf: Function, m: tb.Module) error{OutOfMemory}!@This() {
-    var f = @This(){
-        .name = sf.name,
-        .body = std.ArrayList(Block).init(alloc),
-        .returnType = sf.returnType,
-        .func = m.functionCreate(sf.name, tb.Linkage.PRIVATE),
-        .externSymbol = m.externCreate(sf.name, tb.ExternalType.SO_LOCAL),
-        .prototype = tbHelper.getPrototype(m, sf.returnType),
+pub fn init(alloc: std.mem.Allocator, f: Parser.Function, m: tb.Module) @This() {
+    return @This(){
+        .name = f.name,
+        .body = std.ArrayList(IR.Instruction).init(alloc),
+        .returnType = f.returnType,
+        .func = m.functionCreate(f.name, tb.Linkage.PRIVATE),
+        .externSymbol = m.externCreate(f.name, tb.ExternalType.SO_LOCAL),
+        .prototype = tbHelper.getPrototype(m, f.returnType),
     };
-
-    try Block.transformBodyToSSA(alloc, &f.body, sf.body);
-
-    return f;
 }
 
 pub fn toString(self: @This(), cont: *std.ArrayList(u8), d: u64) error{OutOfMemory}!void {
@@ -56,9 +52,9 @@ pub fn toString(self: @This(), cont: *std.ArrayList(u8), d: u64) error{OutOfMemo
     for (0..d + 2) |_|
         try cont.append(' ');
 
-    try cont.appendSlice("Blocks:\n");
+    try cont.appendSlice("Body:\n");
 
-    for (self.body.items) |block| {
-        try block.toString(cont, d + 4);
+    for (self.body.items) |inst| {
+        try inst.toString(cont, d + 4);
     }
 }

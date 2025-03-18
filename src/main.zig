@@ -230,7 +230,7 @@ pub fn main() u8 {
     tb.Arena.create(&a, "For main Module");
     defer a.destroy();
 
-    const startF = codeGen(m, ir.ssa) catch {
+    const startF = codeGen(m, ir.ir) catch {
         std.log.err("Out of memory", .{});
         return 1;
     };
@@ -240,7 +240,7 @@ pub fn main() u8 {
 
     if (!arguments.run and arguments.stdout) {
         startF.print();
-        var funcsIterator = ir.ssa.funcs.valueIterator();
+        var funcsIterator = ir.ir.funcs.valueIterator();
         while (funcsIterator.next()) |func| {
             func.func.print();
         }
@@ -251,7 +251,7 @@ pub fn main() u8 {
         const ws = tb.Worklist.alloc();
         defer ws.free();
 
-        var funcIterator = ir.ssa.funcs.valueIterator();
+        var funcIterator = ir.ir.funcs.valueIterator();
         {
             var feature: tb.FeatureSet = undefined;
             _ = startF.codeGen(ws, &a, &feature, false);
@@ -268,7 +268,7 @@ pub fn main() u8 {
         if (r != 0) return r;
     } else {
         const jit = tb.Jit.begin(m, 1024 ^ 3);
-        const func = jit.placeFunction(ir.ssa.funcs.get("main").?.func);
+        const func = jit.placeFunction(ir.ir.funcs.get("main").?.func);
         const mainf: *fn () u8 = @ptrCast(func.?);
         return mainf();
     }

@@ -60,11 +60,8 @@ fn codeGenFunction(m: tb.Module, funcWS: tb.Worklist, f: IR.Function) tb.Functio
     const g = func.graphBuilderEnter(textSection, funcPrototype, funcWS);
     defer g.exit();
 
-    for (f.body.items) |block| {
-        const insts: []IR.Instruction = block.body.items;
-        for (insts) |inst| {
-            codeGenInstruction(g, f, inst);
-        }
+    for (f.body.items) |inst| {
+        codeGenInstruction(g, f, inst);
     }
 
     return func;

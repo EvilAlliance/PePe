@@ -3,7 +3,6 @@ const util = @import("Util.zig");
 const Lexer = @import("./Lexer/Lexer.zig");
 const ParseArguments = @import("ParseArgs.zig");
 const typeCheck = @import("TypeCheck.zig").typeCheck;
-const codeGen = @import("CodeGen.zig").codeGen;
 
 const usage = @import("General.zig").usage;
 
@@ -230,7 +229,7 @@ pub fn main() u8 {
     tb.Arena.create(&a, "For main Module");
     defer a.destroy();
 
-    const startF = codeGen(m, ir.ir) catch {
+    const startF = ir.codeGen(m) catch {
         std.log.err("Out of memory", .{});
         return 1;
     };

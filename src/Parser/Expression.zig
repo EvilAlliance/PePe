@@ -90,16 +90,16 @@ pub const Expression = union(enum) {
         unreachable;
     }
 
-    pub fn codeGen(self: @This(), g: tb.GraphBuilder, f: IR.Function) *tb.Node {
+    pub fn codeGen(self: @This(), g: tb.GraphBuilder, t: tb.DataType) *tb.Node {
         return switch (self) {
             .una => |_| unreachable,
             .bin => |b| {
-                const left = b.left.codeGen(g, f);
-                const right = b.right.codeGen(g, f);
+                const left = b.left.codeGen(g, t);
+                const right = b.right.codeGen(g, t);
                 const op = g.binopInt(tb.NodeType.ADD, left, right, tb.ArithmeticBehavior.NUW);
                 return op;
             },
-            .leaf => |l| g.uint(getType(f.returnType), std.fmt.parseUnsigned(u64, l.str, 10) catch unreachable),
+            .leaf => |l| g.uint(t, std.fmt.parseUnsigned(u64, l.str, 10) catch unreachable),
         };
     }
 

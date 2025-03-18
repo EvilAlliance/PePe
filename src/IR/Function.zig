@@ -29,6 +29,22 @@ pub fn init(alloc: std.mem.Allocator, f: Parser.Function, m: tb.Module) @This() 
     };
 }
 
+pub fn codeGen(self: @This(), m: tb.Module, funcWS: tb.Worklist) tb.Function {
+    const textSection = m.getText();
+
+    const func = self.func;
+    const funcPrototype = self.prototype;
+
+    const g = func.graphBuilderEnter(textSection, funcPrototype, funcWS);
+    defer g.exit();
+
+    for (self.body.items) |inst| {
+        inst.codeGen(g, self);
+    }
+
+    return func;
+}
+
 pub fn toString(self: @This(), cont: *std.ArrayList(u8), d: u64) error{OutOfMemory}!void {
     for (0..d) |_|
         try cont.append(' ');

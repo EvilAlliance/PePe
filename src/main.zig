@@ -214,7 +214,7 @@ pub fn main() u8 {
             std.log.err("Out of memory", .{});
             return 1;
         };
-        cont.deinit();
+        defer cont.deinit();
 
         const name = getName(lexer.absPath, "ir");
         writeAll(cont.items, arguments, name);

@@ -24,7 +24,7 @@ pub fn listContains(t: type, l: []const t, e: t) bool {
     return false;
 }
 
-pub fn dupe(allocator: std.mem.Allocator, value: anytype) !*@TypeOf(value) {
+pub fn dupe(allocator: std.mem.Allocator, value: anytype) error{OutOfMemory}!*@TypeOf(value) {
     const new_pointer = try allocator.create(@TypeOf(value));
     new_pointer.* = value;
     return new_pointer;

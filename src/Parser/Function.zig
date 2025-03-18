@@ -57,7 +57,7 @@ pub fn parse(p: *Parser) error{OutOfMemory}!Result(@This(), UnexpectedToken) {
     unexpected = Parser.expect(separator, .openBrace);
     if (unexpected) |u| return r.Err(u);
 
-    const state = try @This().parseBody(p);
+    const state = try parseBody(p);
     switch (state) {
         .ok => {},
         .err => return r.Err(state.err),
@@ -83,7 +83,7 @@ fn parseBody(p: *Parser) error{OutOfMemory}!Result(Statements, UnexpectedToken) 
     var t = p.l.peek();
 
     while (t.type != .closeBrace) : (t = p.l.peek()) {
-        const state = Statement.parse(p, t);
+        const state = try Statement.parse(p, t);
 
         switch (state) {
             .ok => try statements.append(state.ok),

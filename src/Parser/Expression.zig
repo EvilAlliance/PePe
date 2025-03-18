@@ -28,7 +28,7 @@ pub const Expression = union(enum) {
     },
     leaf: Token,
 
-    pub fn parse(p: *Parser) Result(*Expression, UnexpectedToken) {
+    pub fn parse(p: *Parser) error{OutOfMemory}!Result(*Expression, UnexpectedToken) {
         const r = Result(*Expression, UnexpectedToken);
 
         const leaf = @This(){ .leaf = p.l.pop() };
@@ -37,11 +37,7 @@ pub const Expression = union(enum) {
 
         const semi = p.l.peek();
 
-        const leftLeaf = Util.dupe(p.alloc, leaf) catch {
-            std.log.err("Out of memory", .{});
-            // TODO: Change this horrible thing;
-            std.process.exit(1);
-        };
+        const leftLeaf = try Util.dupe(p.alloc, leaf);
         if (semi.type == .semicolon) {
             return r.Ok(leftLeaf);
         } else if (semi.type == .symbol) {
@@ -56,24 +52,14 @@ pub const Expression = union(enum) {
             unexpected = Parser.expect(leaf.leaf, .numberLiteral);
             if (unexpected) |u| return r.Err(u);
 
-            const rightLeaf = Util.dupe(p.alloc, potentailRightLeaf) catch {
-                std.log.err("Out of memory", .{});
-                // TODO: Change this horrible thing;
-                std.process.exit(1);
-            };
-
-            var expr = Util.dupe(p.alloc, @This(){
+            const rightLeaf = try Util.dupe(p.alloc, potentailRightLeaf);
+            var expr = try Util.dupe(p.alloc, @This(){
                 .bin = .{
                     .op = symbol,
                     .left = leftLeaf,
                     .right = rightLeaf,
                 },
-            }) catch {
-                std.log.err("Out of memory", .{});
-                // TODO: Change this horrible thing;
-                std.process.exit(1);
-            };
-
+            });
             var nextToken = p.l.peek();
             while (nextToken.type != .semicolon) : (nextToken = p.l.peek()) {
                 var newSymbol = p.l.pop();
@@ -87,23 +73,14 @@ pub const Expression = union(enum) {
                 unexpected = Parser.expect(leaf.leaf, .numberLiteral);
                 if (unexpected) |u| return r.Err(u);
 
-                const newLeaf = Util.dupe(p.alloc, l) catch {
-                    std.log.err("Out of memory", .{});
-                    // TODO: Change this horrible thing;
-                    std.process.exit(1);
-                };
-
-                expr = Util.dupe(p.alloc, @This(){
+                const newLeaf = try Util.dupe(p.alloc, l);
+                expr = try Util.dupe(p.alloc, @This(){
                     .bin = .{
                         .op = newSymbol,
                         .left = expr,
                         .right = newLeaf,
                     },
-                }) catch {
-                    std.log.err("Out of memory", .{});
-                    // TODO: Change this horrible thing;
-                    std.process.exit(1);
-                };
+                });
             }
 
             return r.Ok(expr);

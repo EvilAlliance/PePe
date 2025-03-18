@@ -96,8 +96,12 @@ pub const Expression = union(enum) {
             .bin => |b| {
                 const left = b.left.codeGen(g, t);
                 const right = b.right.codeGen(g, t);
-                const op = g.binopInt(tb.NodeType.ADD, left, right, tb.ArithmeticBehavior.NUW);
-                return op;
+
+                if (std.mem.eql(u8, b.op.str, "+")) {
+                    return g.binopInt(tb.NodeType.ADD, left, right, tb.ArithmeticBehavior.NUW);
+                } else if (std.mem.eql(u8, b.op.str, "-")) {
+                    return g.binopInt(tb.NodeType.SUB, left, right, tb.ArithmeticBehavior.NUW);
+                } else unreachable;
             },
             .leaf => |l| g.uint(t, std.fmt.parseUnsigned(u64, l.str, 10) catch unreachable),
         };

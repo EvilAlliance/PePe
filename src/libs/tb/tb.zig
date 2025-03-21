@@ -205,6 +205,10 @@ pub const GraphBuilder = struct {
     pub inline fn ret(self: @This(), mem_var: i32, arg_count: i32, args: [*c]?*Node) void {
         return tb.builderRet(self.g, mem_var, arg_count, args);
     }
+
+    pub inline fn neg(self: @This(), src: *Node) *Node {
+        return tb.builderNeg(self.g, src) orelse unreachable;
+    }
 };
 
 pub const Worklist = struct {

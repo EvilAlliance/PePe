@@ -16,7 +16,71 @@ const tb = @import("../libs/tb/tb.zig");
 const tbHelper = @import("../TBHelper.zig");
 const getType = tbHelper.getType;
 
+pub const Operand = std.StaticStringMap(u8).initComptime(.{
+    .{ "^", 0 },
+    .{ "%", 1 },
+    .{ "*", 1 },
+    .{ "/", 1 },
+    .{ "+", 2 },
+    .{ "-", 2 },
+});
+
+pub const Binary = std.StaticStringMap(*const fn (g: tb.GraphBuilder, left: *tb.Node, right: *tb.Node, usigned: bool) *tb.Node).initComptime(.{
+    .{ "^", &BinaryFunction.power },
+    .{ "%", &BinaryFunction.mod },
+    .{ "*", &BinaryFunction.multiply },
+    .{ "/", &BinaryFunction.division },
+    .{ "+", &BinaryFunction.plus },
+    .{ "-", &BinaryFunction.minus },
+});
+
+// For overflow, underflow execption and division and mod that requiere different node types.
+const BinaryFunction = struct {
+    pub fn minus(g: tb.GraphBuilder, left: *tb.Node, right: *tb.Node, unsigned: bool) *tb.Node {
+        _ = unsigned;
+        return g.binopInt(tb.NodeType.SUB, left, right, tb.ArithmeticBehavior.NONE);
+    }
+    pub fn plus(g: tb.GraphBuilder, left: *tb.Node, right: *tb.Node, unsigned: bool) *tb.Node {
+        _ = unsigned;
+        return g.binopInt(tb.NodeType.ADD, left, right, tb.ArithmeticBehavior.NONE);
+    }
+    pub fn multiply(g: tb.GraphBuilder, left: *tb.Node, right: *tb.Node, unsigned: bool) *tb.Node {
+        _ = unsigned;
+        return g.binopInt(tb.NodeType.MUL, left, right, tb.ArithmeticBehavior.NONE);
+    }
+    pub fn division(g: tb.GraphBuilder, left: *tb.Node, right: *tb.Node, unsigned: bool) *tb.Node {
+        _ = unsigned;
+        return g.binopInt(tb.NodeType.UDIV, left, right, tb.ArithmeticBehavior.NONE);
+    }
+    pub fn mod(g: tb.GraphBuilder, left: *tb.Node, right: *tb.Node, unsigned: bool) *tb.Node {
+        _ = unsigned;
+        return g.binopInt(tb.NodeType.UMOD, left, right, tb.ArithmeticBehavior.NONE);
+    }
+    pub fn power(g: tb.GraphBuilder, left: *tb.Node, right: *tb.Node, unsigned: bool) *tb.Node {
+        _ = g;
+        _ = left;
+        _ = right;
+        _ = unsigned;
+        unreachable;
+    }
+};
+
+pub const Unary = std.StaticStringMap(*const fn (g: tb.GraphBuilder, e: *tb.Node, usigned: bool) *tb.Node).initComptime(.{
+    .{ "-", &UnaryFunction.neg },
+});
+
+const UnaryFunction = struct {
+    pub fn neg(g: tb.GraphBuilder, e: *tb.Node, unsigned: bool) *tb.Node {
+        _ = unsigned;
+        return g.neg(e);
+    }
+};
+
+//https://en.cppreference.com/w/c/language/operator_precedence
+
 pub const Expression = union(enum) {
+    var depth: u64 = 0;
+
     bin: struct {
         op: Token,
         left: *Expression,
@@ -24,88 +88,166 @@ pub const Expression = union(enum) {
     },
     una: struct {
         op: Token,
-        t: *Expression,
+        e: *Expression,
     },
     leaf: Token,
+    paren: *Expression,
 
-    pub fn parse(p: *Parser) error{OutOfMemory}!Result(*Expression, UnexpectedToken) {
-        const r = Result(*Expression, UnexpectedToken);
+    fn makeLeaf(alloc: std.mem.Allocator, t: Token) std.mem.Allocator.Error!*@This() {
+        return Util.dupe(alloc, @This(){ .leaf = t });
+    }
 
-        const leaf = @This(){ .leaf = p.l.pop() };
-        var unexpected = Parser.expect(leaf.leaf, .numberLiteral);
-        if (unexpected) |u| return r.Err(u);
+    fn makeParen(alloc: std.mem.Allocator, t: *@This()) std.mem.Allocator.Error!*@This() {
+        return Util.dupe(alloc, @This(){ .paren = t });
+    }
 
-        const semi = p.l.peek();
-
-        const leftLeaf = try Util.dupe(p.alloc, leaf);
-        if (semi.type == .semicolon) {
-            return r.Ok(leftLeaf);
-        } else if (semi.type == .symbol) {
-            var symbol = p.l.pop();
-            var addingSymbol = p.l.peek();
-            while (addingSymbol.type == .symbol) : (addingSymbol = p.l.peek()) {
-                _ = p.l.pop();
-                symbol.str = symbol.loc.content[symbol.loc.i..addingSymbol.loc.i];
-            }
-
-            const potentailRightLeaf = @This(){ .leaf = p.l.pop() };
-            unexpected = Parser.expect(leaf.leaf, .numberLiteral);
-            if (unexpected) |u| return r.Err(u);
-
-            const rightLeaf = try Util.dupe(p.alloc, potentailRightLeaf);
-            var expr = try Util.dupe(p.alloc, @This(){
-                .bin = .{
-                    .op = symbol,
-                    .left = leftLeaf,
-                    .right = rightLeaf,
+    fn makeUnary(alloc: std.mem.Allocator, op: Token, expr: *@This()) std.mem.Allocator.Error!*@This() {
+        return Util.dupe(
+            alloc,
+            @This(){
+                .una = .{
+                    .op = op,
+                    .e = expr,
                 },
-            });
-            var nextToken = p.l.peek();
-            while (nextToken.type != .semicolon) : (nextToken = p.l.peek()) {
-                var newSymbol = p.l.pop();
-                addingSymbol = p.l.peek();
-                while (addingSymbol.type == .symbol) : (addingSymbol = p.l.peek()) {
-                    _ = p.l.pop();
-                    newSymbol.str = symbol.loc.content[symbol.loc.i..addingSymbol.loc.i];
-                }
+            },
+        );
+    }
 
-                const l = @This(){ .leaf = p.l.pop() };
-                unexpected = Parser.expect(leaf.leaf, .numberLiteral);
-                if (unexpected) |u| return r.Err(u);
-
-                const newLeaf = try Util.dupe(p.alloc, l);
-                expr = try Util.dupe(p.alloc, @This(){
-                    .bin = .{
-                        .op = newSymbol,
-                        .left = expr,
-                        .right = newLeaf,
+    fn makeBinary(alloc: std.mem.Allocator, op: Token, left: *@This(), right: *@This()) std.mem.Allocator.Error!*@This() {
+        switch (left.*) {
+            .una, .leaf, .paren => {
+                return Util.dupe(
+                    alloc,
+                    @This(){
+                        .bin = .{
+                            .op = op,
+                            .left = left,
+                            .right = right,
+                        },
                     },
-                });
+                );
+            },
+            .bin => {
+                if (Operand.get(op.str).? >= Operand.get(left.bin.op.str).?) {
+                    return Util.dupe(
+                        alloc,
+                        @This(){
+                            .bin = .{
+                                .op = op,
+                                .left = left,
+                                .right = right,
+                            },
+                        },
+                    );
+                } else {
+                    const leftRight = left.bin.right;
+                    const newExpr = try Util.dupe(
+                        alloc,
+                        @This(){
+                            .bin = .{
+                                .op = op,
+                                .left = leftRight,
+                                .right = right,
+                            },
+                        },
+                    );
+
+                    left.bin.right = newExpr;
+                    return left;
+                }
+            },
+        }
+    }
+
+    fn parseTerm(p: *Parser) std.mem.Allocator.Error!Result(*@This(), UnexpectedToken) {
+        const r = Result(*@This(), UnexpectedToken);
+
+        var nextToken = p.l.peek();
+
+        if (nextToken.type == .openParen) {
+            depth += 1;
+            _ = p.l.pop();
+
+            const expr = switch (try parse(p)) {
+                .ok => |ok| ok,
+                .err => |err| return r.Err(err),
+            };
+
+            if (p.l.pop().type != .closeParen) unreachable;
+
+            if (depth == 0) unreachable;
+            depth -= 1;
+
+            return r.Ok(try makeParen(p.alloc, expr));
+        } else if (nextToken.type == .symbol) {
+            const op = p.l.pop();
+            nextToken = p.l.peek();
+            if (nextToken.type == .openParen) {
+                depth += 1;
+                _ = p.l.pop();
+
+                const expr = switch (try parse(p)) {
+                    .ok => |ok| ok,
+                    .err => |err| return r.Err(err),
+                };
+
+                if (p.l.pop().type != .closeParen) unreachable;
+
+                if (depth == 0) unreachable;
+                depth -= 1;
+
+                return r.Ok(try makeUnary(p.alloc, op, try makeParen(p.alloc, expr)));
+            } else if (nextToken.type == .symbol) {
+                const expr = switch (try parseTerm(p)) {
+                    .ok => |ok| ok,
+                    .err => |err| return r.Err(err),
+                };
+
+                return r.Ok(try makeUnary(p.alloc, op, expr));
+            } else if (nextToken.type == .numberLiteral) {
+                return r.Ok(try makeUnary(p.alloc, op, try makeLeaf(p.alloc, p.l.pop())));
             }
-
-            return r.Ok(expr);
-        } else {
-            const unexpectedSymbol = Parser.expect(semi, .symbol);
-            if (unexpectedSymbol) |u| return r.Err(u);
-
-            const unexpectedSemi = Parser.expect(semi, .semicolon);
-            if (unexpectedSemi) |u| return r.Err(u);
+        } else if (nextToken.type == .numberLiteral) {
+            return r.Ok(try makeLeaf(p.alloc, p.l.pop()));
         }
         unreachable;
     }
 
+    pub fn parse(p: *Parser) std.mem.Allocator.Error!Result(*@This(), UnexpectedToken) {
+        const r = Result(*@This(), UnexpectedToken);
+        var nextToken = p.l.peek();
+        if (nextToken.type == .semicolon) unreachable;
+
+        var expr = switch (try parseTerm(p)) {
+            .ok => |ok| ok,
+            .err => |err| return r.Err(err),
+        };
+
+        nextToken = p.l.peek();
+
+        while (nextToken.type != .semicolon and nextToken.type != .closeParen) : (nextToken = p.l.peek()) {
+            const op = p.l.pop();
+            if (op.type != .symbol) unreachable;
+
+            const right = switch (try parseTerm(p)) {
+                .ok => |ok| ok,
+                .err => |err| return r.Err(err),
+            };
+
+            expr = try makeBinary(p.alloc, op, expr, right);
+        }
+
+        return r.Ok(expr);
+    }
+
     pub fn codeGen(self: @This(), g: tb.GraphBuilder, t: tb.DataType) *tb.Node {
         return switch (self) {
-            .una => |_| unreachable,
+            .una => |u| Unary.get(u.op.str).?(g, u.e.codeGen(g, t), true),
+            .paren => |p| return p.codeGen(g, t),
             .bin => |b| {
                 const left = b.left.codeGen(g, t);
                 const right = b.right.codeGen(g, t);
-
-                if (std.mem.eql(u8, b.op.str, "+")) {
-                    return g.binopInt(tb.NodeType.ADD, left, right, tb.ArithmeticBehavior.NUW);
-                } else if (std.mem.eql(u8, b.op.str, "-")) {
-                    return g.binopInt(tb.NodeType.SUB, left, right, tb.ArithmeticBehavior.NUW);
-                } else unreachable;
+                return Binary.get(b.op.str).?(g, left, right, true);
             },
             .leaf => |l| g.uint(t, std.fmt.parseUnsigned(u64, l.str, 10) catch unreachable),
         };
@@ -123,11 +265,16 @@ pub const Expression = union(enum) {
                 try cont.append(')');
             },
             .una => |u| {
-                _ = u;
-                unreachable;
+                try cont.append('(');
+                try cont.appendSlice(u.op.str);
+                try u.e.toString(cont, d);
+                try cont.append(')');
             },
             .leaf => |l| {
                 try cont.appendSlice(l.str);
+            },
+            .paren => |p| {
+                try p.toString(cont, d);
             },
         }
     }

@@ -2,6 +2,8 @@ const std = @import("std");
 const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
 
+const Util = @import("../Util.zig");
+
 const Lexer = @import("Lexer.zig");
 const Location = Lexer.Location;
 const Token = Lexer.Token;
@@ -20,15 +22,29 @@ pub const TokenType = enum {
     symbol,
     EOF,
 
+    pub fn isSymbol(str: []const u8) bool {
+        assert(str.len > 0);
+        for (str) |c| {
+            if (!Util.listContains(u8, &Lexer.symbols, c)) return false;
+        }
+
+        return true;
+    }
+
     pub fn isIden(str: []const u8) bool {
         assert(str.len > 0);
-        return '0' > str[0] or str[0] > '9';
+        if (std.ascii.isDigit(str[0])) return false;
+        for (str) |c| {
+            if (!std.ascii.isAlphanumeric(c)) return false;
+        }
+
+        return true;
     }
 
     pub fn isNumber(str: []const u8) bool {
         assert(str.len > 0);
         for (str) |c| {
-            if ('0' > c or c > '9') return false;
+            if (!std.ascii.isDigit(c)) return false;
         }
 
         return true;
@@ -56,6 +72,8 @@ pub const TokenType = enum {
             return TokenType.ret;
         } else if (std.mem.eql(u8, str, "fn")) {
             return TokenType.func;
+        } else if (isSymbol(str)) {
+            return TokenType.symbol;
         } else if (isIden(str)) {
             return TokenType.iden;
         } else if (isNumber(str)) {

@@ -29,20 +29,19 @@ finished: bool = false,
 
 alloc: Allocator,
 
-const separatorIgnore = " \t\n\r";
-const separator: [(127 - 33) - (26 * 2) - 10 + 4]u8 = blk: {
-    var result: [(127 - 33) - (26 * 2) - 10 + 4]u8 = undefined;
+pub const separatorIgnore = " \t\n\r";
+pub const separator = "(){};" ++ separatorIgnore;
+// 127 - 33 count of printable caracters
+// - (26 * 2) a-z A-Z
+// - 10 numbres
+// - 5 printable separator
+pub const symbols: [(127 - 33) - (26 * 2) - 10 - 5]u8 = blk: {
+    var result: [(127 - 33) - (26 * 2) - 10 - 5]u8 = undefined;
     var index: usize = 0;
 
-    for (separatorIgnore) |value| {
-        result[index] = value;
-        index += 1;
-    }
-
     for (33..127) |i| {
-        const c = @as(u8, @intCast(i));
-        // Filter non-alphanumeric characters
-        if (!std.ascii.isAlphanumeric(c)) {
+        const c: u8 = @intCast(i);
+        if (!std.ascii.isAlphanumeric(c) and !util.listContains(u8, separator, i)) {
             result[index] = c;
             index += 1;
         }
@@ -71,14 +70,21 @@ pub fn advance(self: *@This()) ?usize {
     self.prevLoc = self.currentLoc;
     var i = self.index;
 
-    while (i < self.content.len and !util.listContains(u8, &separator, self.content[i])) {
+    while (i < self.content.len and !util.listContains(u8, separator, self.content[i]) and !util.listContains(u8, &symbols, self.content[i])) {
         i += 1;
         self.currentLoc.col += 1;
     }
 
     if (self.index == i) {
-        i += 1;
-        self.currentLoc.col += 1;
+        if (util.listContains(u8, &symbols, self.content[i])) {
+            while (i < self.content.len and util.listContains(u8, &symbols, self.content[i])) {
+                i += 1;
+                self.currentLoc.col += 1;
+            }
+        } else {
+            i += 1;
+            self.currentLoc.col += 1;
+        }
     }
     self.currentLoc.i = self.index;
 

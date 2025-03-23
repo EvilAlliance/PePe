@@ -10,8 +10,9 @@ import shlex
 from typing import List, BinaryIO, Tuple, Optional
 from dataclasses import dataclass, field
 
-PEPE_EXT = '.pp'
+EXT = '.yt'
 DEFAULT_TARGET = "./Example/"
+COMMAND = "./zig-out/bin/yot"
 
 def cmd_run_echoed(cmd, **kwargs):
     print("[CMD] %s" % " ".join(map(shlex.quote, cmd)))
@@ -88,18 +89,18 @@ class RunStats:
 
 def run_test_for_file_stdout(file_path: str, subcommand: str, stats: RunStats = RunStats()):
     assert path.isfile(file_path)
-    assert file_path.endswith(PEPE_EXT)
+    assert file_path.endswith(EXT)
 
     print('[INFO] Testing %s, With Subcommand %s' % (file_path, subcommand))
 
-    tc_path = file_path[:-len(PEPE_EXT)] + '.' + subcommand + ".bi"
+    tc_path = file_path[:-len(EXT)] + '.' + subcommand + ".bi"
     tc = load_test_case(tc_path)
 
     error = False
 
     if tc is not None:
         # TODO: do something about fasm splash output
-        com = cmd_run_echoed(["./zig-out/bin/PePe", subcommand, file_path, "-s", "-stdout" , *tc.argv], input=tc.stdin, capture_output=True)
+        com = cmd_run_echoed([COMMAND, subcommand, file_path, "-s", "-stdout" , *tc.argv], input=tc.stdin, capture_output=True)
         if com.returncode != tc.returncode or com.stdout != tc.stdout or com.stderr != tc.stderr:
             print("[ERROR] Unexpected output")
             print("  Expected:")
@@ -115,7 +116,7 @@ def run_test_for_file_stdout(file_path: str, subcommand: str, stats: RunStats = 
 
     else:
         print('[WARNING] Could not find any input/output data for %s. Ignoring testing. Only checking if it compiles.' % file_path)
-        com = cmd_run_echoed(["./zig-out/bin/PePe", "build", file_path])
+        com = cmd_run_echoed([COMMAND, "build", file_path])
         if com.returncode != 0:
             error = True
             stats.failed += 1
@@ -126,18 +127,18 @@ def run_test_for_file_stdout(file_path: str, subcommand: str, stats: RunStats = 
 
 def run_test_for_file(file_path: str, subcommand: str, stats: RunStats = RunStats()):
     assert path.isfile(file_path)
-    assert file_path.endswith(PEPE_EXT)
+    assert file_path.endswith(EXT)
 
     print('[INFO] Testing %s, With Subcommand %s' % (file_path, subcommand))
 
-    tc_path = file_path[:-len(PEPE_EXT)] + '.' + subcommand + ".bi"
+    tc_path = file_path[:-len(EXT)] + '.' + subcommand + ".bi"
     tc = load_test_case(tc_path)
 
     error = False
 
     if tc is not None:
         # TODO: do something about fasm splash output
-        com = cmd_run_echoed(["./zig-out/bin/PePe", subcommand, file_path, "-s", *tc.argv], input=tc.stdin, capture_output=True)
+        com = cmd_run_echoed(["COMMAND", subcommand, file_path, "-s", *tc.argv], input=tc.stdin, capture_output=True)
         if com.returncode != tc.returncode or com.stdout != tc.stdout or com.stderr != tc.stderr:
             print("[ERROR] Unexpected output")
             print("  Expected:")
@@ -153,7 +154,7 @@ def run_test_for_file(file_path: str, subcommand: str, stats: RunStats = RunStat
 
     else:
         print('[WARNING] Could not find any input/output data for %s. Ignoring testing. Only checking if it compiles.' % file_path)
-        com = cmd_run_echoed(["./zig-out/bin/PePe", "build", file_path])
+        com = cmd_run_echoed([COMMAND, "build", file_path])
         if com.returncode != 0:
             error = True
             stats.failed += 1
@@ -172,7 +173,7 @@ def run_all_test_for_file(file_path: str, stats: RunStats = RunStats()):
 def run_test_for_folder(folder: str):
     stats = RunStats()
     for entry in os.scandir(folder):
-        if entry.is_file() and entry.path.endswith(PEPE_EXT):
+        if entry.is_file() and entry.path.endswith(EXT):
             run_all_test_for_file(entry.path, stats)
     print()
     print("Failed: %d, Ignored: %d" % (stats.failed, stats.ignored))
@@ -184,8 +185,8 @@ def run_test_for_folder(folder: str):
         exit(1)
 
 def update_input_for_file(file_path: str, argv: List[str]):
-    assert file_path.endswith(PEPE_EXT)
-    tc_path = file_path[:-len(PEPE_EXT)] + ".run"
+    assert file_path.endswith(EXT)
+    tc_path = file_path[:-len(EXT)] + ".run"
     tc = load_test_case(tc_path) or DEFAULT_TEST_CASE
 
     print("[INFO] Provide the stdin for the test case. Press ^D when you are done.")
@@ -198,20 +199,20 @@ def update_input_for_file(file_path: str, argv: List[str]):
                    tc.returncode, tc.stdout, tc.stderr)
 
 def update_output_for_file_stdout(file_path: str, subcommand: str):
-    tc_path = file_path[:-len(PEPE_EXT)] + "." + subcommand + ".bi"
+    tc_path = file_path[:-len(EXT)] + "." + subcommand + ".bi"
     tc = load_test_case(tc_path) or DEFAULT_TEST_CASE
 
-    output = cmd_run_echoed(["./zig-out/bin/PePe", subcommand, file_path, "-stdout", "-s", *tc.argv], input=tc.stdin, capture_output=True)
+    output = cmd_run_echoed([COMMAND, subcommand, file_path, "-stdout", "-s", *tc.argv], input=tc.stdin, capture_output=True)
     print("[INFO] Saving output to %s" % tc_path)
     save_test_case(tc_path,
                    tc.argv, tc.stdin,
                    output.returncode, output.stdout, output.stderr)
 
 def update_output_for_file(file_path: str, subcommand: str):
-    tc_path = file_path[:-len(PEPE_EXT)] + "." + subcommand + ".bi"
+    tc_path = file_path[:-len(EXT)] + "." + subcommand + ".bi"
     tc = load_test_case(tc_path) or DEFAULT_TEST_CASE
 
-    output = cmd_run_echoed(["./zig-out/bin/PePe", subcommand, file_path, "-s", *tc.argv], input=tc.stdin, capture_output=True)
+    output = cmd_run_echoed([COMMAND, subcommand, file_path, "-s", *tc.argv], input=tc.stdin, capture_output=True)
     print("[INFO] Saving output to %s" % tc_path)
     save_test_case(tc_path,
                    tc.argv, tc.stdin,
@@ -219,7 +220,7 @@ def update_output_for_file(file_path: str, subcommand: str):
 
 def update_output_for_folder(folder: str, subcommand: str):
     for entry in os.scandir(folder):
-        if entry.is_file() and entry.path.endswith(PEPE_EXT):
+        if entry.is_file() and entry.path.endswith(EXT):
             update_output_for_file(entry.path, subcommand)
 
 def update_all_output_for_file(file_path: str):
@@ -231,7 +232,7 @@ def update_all_output_for_file(file_path: str):
 
 def update_all_output_for_folder(folder: str):
     for entry in os.scandir(folder):
-        if entry.is_file() and entry.path.endswith(PEPE_EXT):
+        if entry.is_file() and entry.path.endswith(EXT):
             update_all_output_for_file(entry.path)
 
 def usage(exe_name: str):
@@ -240,8 +241,8 @@ def usage(exe_name: str):
     print()
     print("  SUBCOMMAND:")
     print("    run [TARGET]")
-    print(f"      Run the test on the [TARGET]. The [TARGET] is either a *{PEPE_EXT} file or ")
-    print(f"      folder with *{PEPE_EXT} files. The default [TARGET] is '{DEFAULT_TARGET}'.")
+    print(f"      Run the test on the [TARGET]. The [TARGET] is either a *{EXT} file or ")
+    print(f"      folder with *{EXT} files. The default [TARGET] is '{DEFAULT_TARGET}'.")
     print()
     print("    update [SUBSUBCOMMAND]")
     print("      Update the input or output of the tests.")
@@ -250,11 +251,11 @@ def usage(exe_name: str):
     print("      SUBSUBCOMMAND:")
     print("        input <TARGET>")
     print("          Update the input of the <TARGET>. The <TARGET> can only be")
-    print(f"          a *{PEPE_EXT} file.")
+    print(f"          a *{EXT} file.")
     print()
     print("        output [TARGET] [TYPE]")
-    print(f"          Update the output of the [TARGET]. The [TARGET] is either a *{PEPE_EXT}")
-    print(f"          file or folder with *{PEPE_EXT} files. The default [TARGET] is")
+    print(f"          Update the output of the [TARGET]. The [TARGET] is either a *{EXT}")
+    print(f"          file or folder with *{EXT} files. The default [TARGET] is")
     print(f"          '{DEFAULT_TARGET}'")
     print()
     print("    full (synonyms: all)")
@@ -304,7 +305,6 @@ if __name__ == '__main__':
             else:
                 assert False, 'unreachable'
         elif subsubcommand == 'input':
-            assert False, 'does not work for PePe'
             if len(argv) == 0:
                 usage(exe_name)
                 print("[ERROR] no file is provided for `%s %s` subcommand" % (subcommand, subsubcommand), file=sys.stderr)

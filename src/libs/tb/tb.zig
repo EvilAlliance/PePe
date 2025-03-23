@@ -9,6 +9,7 @@ pub const System = tb.System;
 pub const Linkage = tb.Linkage;
 pub const CallingConv = tb.CallingConv;
 pub const DebugFormat = tb.DebugFormat;
+pub const CodegenRA = tb.CodegenRA;
 
 pub const ModuleSectionHandle = tb.ModuleSectionHandle;
 pub const FunctionPrototype = tb.FunctionPrototype;
@@ -149,8 +150,8 @@ pub const Function = struct {
         return GraphBuilder.enter(self, section, proto, ws);
     }
 
-    pub inline fn codeGen(self: @This(), ws: ?Worklist, a: ?*Arena, f: *FeatureSet, emit_asm: bool) FunctionOutput {
-        const out = tb.codegen(self.f, if (ws) |w| w.ws else null, if (a) |arena| &arena.arena else null, f, emit_asm) orelse unreachable;
+    pub inline fn codeGen(self: @This(), ra: tb.CodegenRA, ws: ?Worklist, a: ?*Arena, f: *FeatureSet, emit_asm: bool) FunctionOutput {
+        const out = tb.codegen(self.f, ra, if (ws) |w| w.ws else null, if (a) |arena| &arena.arena else null, f, emit_asm) orelse unreachable;
 
         return FunctionOutput{ .fo = out };
     }
@@ -243,8 +244,8 @@ pub const GraphBuilder = struct {
         return tb.builderLocal(self.g, size, a) orelse unreachable;
     }
 
-    pub inline fn store(self: @This(), mem_var: i32, ctrlDep: bool, addr: *Node, val: *Node, a: CharUnits, isVolatile: bool) void {
-        tb.builderStore(self.g, mem_var, ctrlDep, addr, val, a, isVolatile);
+    pub inline fn store(self: @This(), mem_var: i32, ctrlDep: bool, addr: *Node, val: *Node, a: CharUnits, isVolatile: bool) *Node {
+        return tb.builderStore(self.g, mem_var, ctrlDep, addr, val, a, isVolatile) orelse unreachable;
     }
 
     pub inline fn load(self: @This(), mem_var: i32, ctrlDep: bool, dt: DataType, addr: *Node, a: CharUnits, isVolatile: bool) *Node {

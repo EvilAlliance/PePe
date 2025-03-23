@@ -62,10 +62,10 @@ const BinaryFunction = struct {
         _ = unsigned;
 
         const condAddr = g.local(1, 1);
-        g.store(0, false, condAddr, exp, 1, false);
+        _ = g.store(0, false, condAddr, exp, 1, false);
 
         const resultAddr = g.local(1, 1);
-        g.store(0, false, resultAddr, g.uint(base.dt, 1), 1, false);
+        _ = g.store(0, false, resultAddr, g.uint(base.dt, 1), 1, false);
 
         const exit = g.labelMake();
         const header = g.loop();
@@ -87,10 +87,10 @@ const BinaryFunction = struct {
             _ = g.labelSet(paths[0]);
             const result = g.load(0, false, exp.dt, resultAddr, 1, false);
             const newResult = g.binopInt(tb.NodeType.MUL, result, base, tb.ArithmeticBehavior.NONE);
-            g.store(0, false, resultAddr, newResult, 1, false);
+            _ = g.store(0, false, resultAddr, newResult, 1, false);
 
             const newValue = g.binopInt(tb.NodeType.SUB, n, g.uint(tb.typeI8(), 1), tb.ArithmeticBehavior.NONE);
-            g.store(0, false, condAddr, newValue, 1, false);
+            _ = g.store(0, false, condAddr, newValue, 1, false);
 
             g.br(loop);
             g.labelKill(paths[0]);

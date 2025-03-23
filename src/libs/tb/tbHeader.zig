@@ -264,6 +264,10 @@ pub inline fn isFloatType(x: anytype) @TypeOf((x.type == DataTypeTag.F32) or (x.
     _ = &x;
     return (x.type == DataTypeTag.F32) or (x.type == DataTypeTag.F64);
 }
+pub inline fn isVectorType(x: anytype) @TypeOf((x.type >= DataTypeTag.V512) and (x.type <= DataTypeTag.V512)) {
+    _ = &x;
+    return (x.type >= DataTypeTag.V64) and (x.type <= DataTypeTag.V512);
+}
 pub inline fn isPointerType(x: anytype) @TypeOf(x.type == DataTypeTag.PTR) {
     _ = &x;
     return x.type == DataTypeTag.PTR;
@@ -428,10 +432,6 @@ pub const NodeTypeEnum = enum(c_int) {
     //   bulk memory ops.
     MEMCPY, // (Control, Memory, Ptr, Ptr, Size)  -> Memory
     MEMSET, // (Control, Memory, Ptr, Int8, Size) -> Memory
-    //   these memory accesses represent "volatile" which means
-    //   they may produce side effects and thus cannot be eliminated.
-    READ, // (Control, Memory, Ptr)       -> (Memory, Data)
-    WRITE, // (Control, Memory, Ptr, Data) -> (Memory, Data)
     //   atomics have multiple observers (if not they wouldn't need to
     //   be atomic) and thus produce side effects everywhere just like
     //   volatiles except they have synchronization guarentees. the atomic
@@ -446,6 +446,8 @@ pub const NodeTypeEnum = enum(c_int) {
     ATOMIC_OR, // (Control, Memory, Ptr, Data)  -> (Memory, Data)
     ATOMIC_PTROFF, // (Control, Memory, Ptr, Ptr)   -> (Memory, Ptr)
     ATOMIC_CAS, // (Control, Memory, Data, Data) -> (Memory, Data, Bool)
+    //   volatile memory barrier
+    TB_HARD_BARRIER, // (Control, Memory, MemOp) -> Memory
 
     // like a multi-way branch but without the control flow aspect, but for data.
     LOOKUP,
@@ -523,14 +525,13 @@ pub const NodeTypeEnum = enum(c_int) {
     FRAME_PTR,
 
     // Special ops
-    //   add with carry
-    ADC, // (Int, Int, Bool?) -> (Int, Bool)
-    //   division and modulo
-    UDIVMOD, // (Int, Int) -> (Int, Int)
-    SDIVMOD, // (Int, Int) -> (Int, Int)
     //   does full multiplication (64x64=128 and so on) returning
     //   the low and high values in separate projections
     MULPAIR,
+
+    // Vector ops
+    TB_VBROADCAST,
+    TB_VSHUFFLE,
 
     // variadic
     VA_START,
@@ -542,8 +543,6 @@ pub const NodeTypeEnum = enum(c_int) {
     X86INTRIN_RSQRT,
 
     // general machine nodes:
-    // does the phi move
-    MACH_MOVE,
     MACH_COPY,
     // (Control) -> Control
     MACH_JUMP,
@@ -554,6 +553,7 @@ pub const NodeTypeEnum = enum(c_int) {
     // isn't the pointer value itself, just a placeholder for
     // referring to a global.
     MACH_SYMBOL,
+    MACH_TEMP,
 
     // limit on generic nodes
     NODE_TYPE_MAX,
@@ -713,6 +713,10 @@ pub const NodeMachCopy = extern struct { // TB_MACH_COPY
     def: ?*RegMask = @import("std").mem.zeroes(?*RegMask),
 };
 
+pub const NodeMachTemp = extern struct { // TB_MACH_COPY
+    def: ?*RegMask = @import("std").mem.zeroes(?*RegMask),
+};
+
 pub const _NodeProj = extern struct { // TB_PROJ
     index: c_int = @import("std").mem.zeroes(c_int),
 };
@@ -750,6 +754,7 @@ pub const NodeBinopInt = extern struct { // any integer binary operator
 
 pub const NodeMemAccess = extern struct {
     @"align": CharUnits = @import("std").mem.zeroes(CharUnits),
+    is_volatile: bool = @import("std").mem.zeroes(bool),
 };
 
 pub const NodeDbgLoc = extern struct { // TB_DEBUG_LOCATION
@@ -807,6 +812,15 @@ pub const NodeTailcall = extern struct {
     proto: [*c]FunctionPrototype = @import("std").mem.zeroes([*c]FunctionPrototype),
 };
 
+pub const TB_NodeVShuffle = extern struct {
+    width: c_int align(4) = @import("std").mem.zeroes(c_int),
+    pub fn indices(self: anytype) @import("std").zig.c_translation.FlexibleArrayType(@TypeOf(self), c_int) {
+        const Intermediate = @import("std").zig.c_translation.FlexibleArrayType(@TypeOf(self), u8);
+        const ReturnType = @import("std").zig.c_translation.FlexibleArrayType(@TypeOf(self), c_int);
+        return @as(ReturnType, @ptrCast(@alignCast(@as(Intermediate, @ptrCast(self)) + 4)));
+    }
+};
+
 pub const NodeRegion = extern struct {
     tag: [*c]const u8 = @import("std").mem.zeroes([*c]const u8),
     // used for IR building
@@ -853,9 +867,9 @@ pub const Safepoint = extern struct {
     userdata: ?*anyopaque = @import("std").mem.zeroes(?*anyopaque),
     ip: u32 = @import("std").mem.zeroes(u32),
     count: u32 = @import("std").mem.zeroes(u32),
-    pub fn values(self: anytype) @import("std").zig.c_translation.FlexibleArrayType(@TypeOf(self), c_int) {
+    pub fn values(self: anytype) @import("std").zig.c_translation.FlexibleArrayType(@TypeOf(self), c_uint) {
         const Intermediate = @import("std").zig.c_translation.FlexibleArrayType(@TypeOf(self), u8);
-        const ReturnType = @import("std").zig.c_translation.FlexibleArrayType(@TypeOf(self), c_int);
+        const ReturnType = @import("std").zig.c_translation.FlexibleArrayType(@TypeOf(self), c_uint);
         return @as(ReturnType, @ptrCast(@alignCast(@as(Intermediate, @ptrCast(self)) + 24)));
     }
 };
@@ -1005,7 +1019,28 @@ pub const safepointGet = @extern(*const fn (f: ?*Function, relative_ip: u32) cal
 ////////////////////////////////
 // Disassembler
 ////////////////////////////////
-pub const printDisassemblyInst = @extern(*const fn (arch: Arch, length: usize, ptr: ?*const anyopaque) callconv(.C) c_long, .{ .name = "tb_print_disassembly_inst" });
+pub const Disasm = extern struct {
+    ctx: ?*anyopaque = @import("std").mem.zeroes(?*anyopaque),
+
+    // Input stream
+    in_len: usize = @import("std").mem.zeroes(usize),
+    in_curr: usize = @import("std").mem.zeroes(usize),
+    in: [*c]const u8 = @import("std").mem.zeroes([*c]const u8),
+
+    // Output stream
+    out_len: usize = @import("std").mem.zeroes(usize),
+    out_curr: usize = @import("std").mem.zeroes(usize),
+    out: [*c]u8 = @import("std").mem.zeroes([*c]u8),
+
+    // symbol_handler will be called any time there's a constant
+    // or offset which the disassembler can pretty print.
+    //
+    // field_pos is measured in bits because RISC processors like to have ranges in funky places
+    symbol_handler: ?*const fn ([*c]Disasm, c_int, u64, c_int, c_int, bool) callconv(.c) bool = @import("std").mem.zeroes(?*const fn ([*c]Disasm, c_int, u64, c_int, c_int, bool) callconv(.c) bool),
+};
+
+pub const disasmOutf = @extern(*const fn (disasm: [*c]Disasm, fmt: [*c]const u8, ...) callconv(.C) bool, .{ .name = "tb_disasm_outf" });
+pub const disasmPrint = @extern(*const fn (arch: Arch, disasm: [*c]Disasm, has_relocs: bool) callconv(.C) c_long, .{ .name = "tb_disasm_print" });
 
 ////////////////////////////////
 // JIT compilation
@@ -1216,7 +1251,7 @@ pub const instSetExitLocation = @extern(*const fn (f: ?*Function, file: [*c]Sour
 
 // if section is NULL, default to .text
 pub const functionCreate = @extern(*const fn (m: ?*Module, len: c_long, name: [*c]const u8, linkage: Linkage) callconv(.C) ?*Function, .{ .name = "tb_function_create" });
-
+pub const functionSetFeature = @extern(*const fn (f: ?*Function, feature: [*c]const FeatureSet) callconv(.C) ?*Function, .{ .name = "tb_function_create" });
 pub const functionGetArena = @extern(*const fn (f: ?*Function, i: c_int) callconv(.C) [*c]Arena, .{ .name = "tb_function_get_arena" });
 
 // if len is -1, it's null terminated
@@ -1423,9 +1458,9 @@ pub const instSetBranchFreq = @extern(*const fn (f: ?*Function, n: ?*Node, total
 pub const instRet = @extern(*const fn (f: ?*Function, count: usize, values: [*c]?*Node) callconv(.C) void, .{ .name = "tb_inst_ret" });
 
 ////////////////////////////////
-// optimizer api
+// Optimizer api
 ////////////////////////////////
-// to avoid allocs, you can make a worklist and keep it across multiple functions so long
+// To avoid allocs, you can make a worklist and keep it across multiple functions so long
 // as they're not trying to use it at the same time.
 pub const Worklist = opaque {};
 
@@ -1457,13 +1492,20 @@ pub const print = @extern(*const fn (f: ?*Function) callconv(.C) void, .{ .name 
 pub const printDump = @extern(*const fn (f: ?*Function) callconv(.C) void, .{ .name = "tb_print_dumb" });
 pub const printSvg = @extern(*const fn (f: ?*Function) callconv(.C) void, .{ .name = "tb_print_svg" });
 
+pub const interpret = @extern(*const fn (f: ?*Function, ws: ?*Worklist, params: [*c]u64) callconv(.C) u64, .{ .name = "tb_interpret" });
+
+pub const CodegenRA = enum(c_uint) {
+    ROGERS = 0,
+    BRIGGS,
+};
+
 // codegen:
 //   output goes at the top of the code_arena, feel free to place multiple functions
 //   into the same code arena (although arenas aren't thread-safe you'll want one per thread
 //   at least)
 //
 //   if code_arena is NULL, the IR arena will be used.
-pub const codegen = @extern(*const fn (f: ?*Function, ws: ?*Worklist, code_arena: [*c]Arena, features: [*c]const FeatureSet, emit_asm: bool) callconv(.C) ?*FunctionOutput, .{ .name = "tb_codegen" });
+pub const codegen = @extern(*const fn (f: ?*Function, ra: CodegenRA, ws: ?*Worklist, code_arena: [*c]Arena, features: [*c]const FeatureSet, emit_asm: bool) callconv(.C) ?*FunctionOutput, .{ .name = "tb_codegen" });
 
 // interprocedural optimizer iter
 pub const moduleIpo = @extern(*const fn (m: ?*Module) callconv(.C) bool, .{ .name = "tb_module_ipo" });
@@ -1515,7 +1557,7 @@ pub const builderPtrNumber = @extern(*const fn (g: ?*GraphBuilder, base: ?*Node,
 
 // memory
 pub const builderLoad = @extern(*const fn (g: ?*GraphBuilder, mem_var: c_int, ctrl_dep: bool, dt: DataType, addr: ?*Node, @"align": CharUnits, is_volatile: bool) callconv(.C) ?*Node, .{ .name = "tb_builder_load" });
-pub const builderStore = @extern(*const fn (g: ?*GraphBuilder, mem_var: c_int, ctrl_dep: bool, addr: ?*Node, val: ?*Node, @"align": CharUnits, is_volatile: bool) callconv(.C) void, .{ .name = "tb_builder_store" });
+pub const builderStore = @extern(*const fn (g: ?*GraphBuilder, mem_var: c_int, ctrl_dep: bool, addr: ?*Node, val: ?*Node, @"align": CharUnits, is_volatile: bool) callconv(.C) ?*Node, .{ .name = "tb_builder_store" });
 pub const builderMemcpy = @extern(*const fn (g: ?*GraphBuilder, mem_var: c_int, ctrl_dep: bool, dst: ?*Node, src: ?*Node, size: ?*Node, @"align": CharUnits, is_volatile: bool) callconv(.C) void, .{ .name = "tb_builder_memcpy" });
 pub const builderMemset = @extern(*const fn (g: ?*GraphBuilder, mem_var: c_int, ctrl_dep: bool, dst: ?*Node, val: ?*Node, size: ?*Node, @"align": CharUnits, is_volatile: bool) callconv(.C) void, .{ .name = "tb_builder_memset" });
 pub const builderMemzero = @extern(*const fn (g: ?*GraphBuilder, mem_var: c_int, ctrl_dep: bool, dst: ?*Node, size: ?*Node, @"align": CharUnits, is_volatile: bool) callconv(.C) void, .{ .name = "tb_builder_memzero" });
@@ -1536,8 +1578,9 @@ pub const builderLoc = @extern(*const fn (g: ?*GraphBuilder, mem_var: c_int, fil
 // function call
 pub const builderCall = @extern(*const fn (g: ?*GraphBuilder, proto: [*c]FunctionPrototype, mem_var: c_int, target: ?*Node, arg_count: c_int, args: [*c]?*Node) callconv(.C) [*c]?*Node, .{ .name = "tb_builder_call" });
 pub const builderSyscall = @extern(*const fn (g: ?*GraphBuilder, dt: DataType, mem_var: c_int, target: ?*Node, arg_count: c_int, args: [*c]?*Node) callconv(.C) ?*Node, .{ .name = "tb_builder_syscall" });
-pub const builderSafepoint = @extern(*const fn (g: ?*GraphBuilder, mem_var: c_int, userdata: ?*anyopaque, poll_site: ?*Node, arg_count: c_int, args: [*c]?*Node) callconv(.C) void, .{ .name = "tb_builder_safepoint" });
-
+// paths[0] has the normal path's symbol table written in it.
+// paths[1] has the "hit" path's symbol table written in it.
+pub const builderSafepoint = @extern(*const fn (g: ?*GraphBuilder, mem_var: c_int, mem_op: ?*Node, userdata: ?*anyopaque, arg_count: c_int, args: [*c]?*Node, paths: [*c]?*Node) callconv(.C) void, .{ .name = "tb_builder_safepoint" });
 // locals (variables but as stack vars)
 pub const builderLocal = @extern(*const fn (g: ?*GraphBuilder, size: CharUnits, @"align": CharUnits) callconv(.C) ?*Node, .{ .name = "tb_builder_local" });
 pub const builderLocalDbg = @extern(*const fn (g: ?*GraphBuilder, n: ?*Node, len: c_long, name: [*c]const u8, @"type": ?*DebugType) callconv(.C) void, .{ .name = "tb_builder_local_dbg" });
@@ -1608,4 +1651,3 @@ pub const builderX86Stmxcsr = @extern(*const fn (g: ?*GraphBuilder) callconv(.C)
 ////////////////////////////////
 pub const nodeIsConstantNonZero = @extern(*const fn (n: ?*Node) callconv(.C) bool, .{ .name = "tb_node_is_constant_non_zero" });
 pub const nodeIsConstantZero = @extern(*const fn (n: ?*Node) callconv(.C) bool, .{ .name = "tb_node_is_constant_zero" });
-pub const a = @extern(*const fn (m: ?*Module, cc: CallingConv, has_varargs: bool) callconv(.C) [*c]FunctionPrototype, .{ .name = "a" });

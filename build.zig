@@ -23,7 +23,7 @@ pub fn build(b: *std.Build) void {
     });
 
     exe.addIncludePath(b.path("./src/libs"));
-    exe.addObjectFile(b.path("./src/libs/tb.a")); // Adjust the path and filename
+    exe.addObjectFile(b.path("./src/libs/libtb.a")); // Adjust the path and filename
     exe.linkLibC();
 
     // This declares intent for the executable to be installed into the

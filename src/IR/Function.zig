@@ -29,7 +29,7 @@ pub fn init(alloc: std.mem.Allocator, f: Parser.Function, m: tb.Module) @This() 
     };
 }
 
-pub fn codeGen(self: @This(), m: tb.Module, funcWS: tb.Worklist) tb.Function {
+pub fn codeGen(self: @This(), m: tb.Module, funcWS: ?tb.Worklist) tb.Function {
     const textSection = m.getText();
 
     const func = self.func;

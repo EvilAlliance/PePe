@@ -56,12 +56,54 @@ const BinaryFunction = struct {
         _ = unsigned;
         return g.binopInt(tb.NodeType.UMOD, left, right, tb.ArithmeticBehavior.NONE);
     }
-    pub fn power(g: tb.GraphBuilder, left: *tb.Node, right: *tb.Node, unsigned: bool) *tb.Node {
-        _ = g;
-        _ = left;
-        _ = right;
+    pub fn power(g: tb.GraphBuilder, base: *tb.Node, exp: *tb.Node, unsigned: bool) *tb.Node {
+        std.log.warn("Unstable with optimizer", .{});
+
         _ = unsigned;
-        unreachable;
+
+        const condAddr = g.local(1, 1);
+        g.store(0, false, condAddr, exp, 1, false);
+
+        const resultAddr = g.local(1, 1);
+        g.store(0, false, resultAddr, g.uint(base.dt, 1), 1, false);
+
+        const exit = g.labelMake();
+        const header = g.loop();
+        const loop = g.labelClone(header);
+
+        {
+            var paths: [2]*tb.Node = undefined;
+
+            const n = g.load(0, false, exp.dt, condAddr, 1, false);
+            // const zero = g.uint(n.dt, 0);
+            // const cond = g.cmp(tb.NodeType.CMP_NE, n, zero);
+
+            g.@"if"(n, &paths);
+
+            _ = g.labelSet(paths[1]);
+            g.br(exit);
+            g.labelKill(paths[1]);
+
+            _ = g.labelSet(paths[0]);
+            const result = g.load(0, false, exp.dt, resultAddr, 1, false);
+            const newResult = g.binopInt(tb.NodeType.MUL, result, base, tb.ArithmeticBehavior.NONE);
+            g.store(0, false, resultAddr, newResult, 1, false);
+
+            const newValue = g.binopInt(tb.NodeType.SUB, n, g.uint(tb.typeI8(), 1), tb.ArithmeticBehavior.NONE);
+            g.store(0, false, condAddr, newValue, 1, false);
+
+            g.br(loop);
+            g.labelKill(paths[0]);
+        }
+
+        g.labelKill(loop);
+        g.labelKill(header);
+
+        _ = g.labelSet(exit);
+
+        const result = g.load(0, false, base.dt, resultAddr, 1, false);
+
+        return result;
     }
 };
 

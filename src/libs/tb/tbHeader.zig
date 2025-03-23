@@ -989,7 +989,7 @@ pub const Assembly = extern struct {
 // this is where the machine code and other relevant pieces go.
 pub const FunctionOutput = opaque {};
 
-pub const outputPrintAsm = @extern(*const fn (out: ?*FunctionOutput, fp: c.FILE) callconv(.C) void, .{ .name = "tb_output_print_asm" });
+pub const outputPrintAsm = @extern(*const fn (out: ?*FunctionOutput, fp: *c.FILE) callconv(.C) void, .{ .name = "tb_output_print_asm" });
 
 pub const outputGetCode = @extern(*const fn (out: ?*FunctionOutput, out_length: [*c]usize) callconv(.C) [*c]u8, .{ .name = "tb_output_get_code" });
 

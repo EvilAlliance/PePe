@@ -19,6 +19,7 @@ pub const Node = tb.Node;
 pub const ExternalType = tb.ExternalType;
 pub const Symbol = tb.Symbol;
 pub const FeatureSet = tb.FeatureSet;
+pub const CharUnits = tb.CharUnits;
 
 pub const NodeType = tb.NodeTypeEnum;
 pub const ArithmeticBehavior = tb.ArithmeticBehavior;
@@ -205,6 +206,58 @@ pub const GraphBuilder = struct {
     pub inline fn ret(self: @This(), mem_var: i32, arg_count: i32, args: [*c]?*Node) void {
         return tb.builderRet(self.g, mem_var, arg_count, args);
     }
+
+    pub inline fn neg(self: @This(), src: *Node) *Node {
+        return tb.builderNeg(self.g, src) orelse unreachable;
+    }
+
+    pub inline fn unary(self: @This(), t: NodeType, src: *Node) *Node {
+        return tb.builderUnary(self.g, t, src) orelse unreachable;
+    }
+
+    pub inline fn @"if"(self: @This(), cond: *Node, paths: *[2]*Node) void {
+        tb.builderIf(self.g, cond, @ptrCast(&paths[0]));
+    }
+
+    pub inline fn loop(self: @This()) *Node {
+        return tb.builderLoop(self.g) orelse unreachable;
+    }
+
+    pub inline fn labelMake(self: @This()) *Node {
+        return tb.builderLabelMake(self.g) orelse unreachable;
+    }
+
+    pub inline fn labelClone(self: @This(), label: *Node) *Node {
+        return tb.builderLabelClone(self.g, label) orelse unreachable;
+    }
+
+    pub inline fn labelSet(self: @This(), label: *Node) ?*Node {
+        return tb.builderLabelSet(self.g, label);
+    }
+
+    pub inline fn labelKill(self: @This(), label: *Node) void {
+        tb.builderLabelKill(self.g, label);
+    }
+
+    pub inline fn local(self: @This(), size: CharUnits, a: CharUnits) *Node {
+        return tb.builderLocal(self.g, size, a) orelse unreachable;
+    }
+
+    pub inline fn store(self: @This(), mem_var: i32, ctrlDep: bool, addr: *Node, val: *Node, a: CharUnits, isVolatile: bool) void {
+        tb.builderStore(self.g, mem_var, ctrlDep, addr, val, a, isVolatile);
+    }
+
+    pub inline fn load(self: @This(), mem_var: i32, ctrlDep: bool, dt: DataType, addr: *Node, a: CharUnits, isVolatile: bool) *Node {
+        return tb.builderLoad(self.g, mem_var, ctrlDep, dt, addr, a, isVolatile) orelse unreachable;
+    }
+
+    pub inline fn br(self: @This(), label: *Node) void {
+        tb.builderBr(self.g, label);
+    }
+
+    pub inline fn cmp(self: @This(), t: NodeType, a: *Node, b: *Node) *Node {
+        return tb.builderCmp(self.g, @intFromEnum(t), a, b) orelse unreachable;
+    }
 };
 
 pub const Worklist = struct {
@@ -223,7 +276,7 @@ pub const Worklist = struct {
 pub const FunctionOutput = struct {
     fo: *tb.FunctionOutput,
 
-    pub inline fn printAsm(self: @This(), f: cc.FILE) void {
+    pub inline fn printAsm(self: @This(), f: *cc.FILE) void {
         tb.outputPrintAsm(self.fo, f);
     }
 };

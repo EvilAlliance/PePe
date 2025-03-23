@@ -19,11 +19,11 @@ pub const Statement = union(enum) {
     ret: Return,
     func: Function,
 
-    pub fn parse(p: *Parser, t: Token) Result(@This(), UnexpectedToken) {
+    pub fn parse(p: *Parser, t: Token) error{OutOfMemory}!Result(@This(), UnexpectedToken) {
         const r = Result(@This(), UnexpectedToken);
         switch (t.type) {
             .ret => {
-                const state = Return.parse(p);
+                const state = try Return.parse(p);
                 switch (state) {
                     .ok => return r.Ok(@This(){ .ret = state.ok }),
                     .err => return r.Err(state.err),

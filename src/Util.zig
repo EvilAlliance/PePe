@@ -24,6 +24,12 @@ pub fn listContains(t: type, l: []const t, e: t) bool {
     return false;
 }
 
+pub fn dupe(allocator: std.mem.Allocator, value: anytype) std.mem.Allocator.Error!*@TypeOf(value) {
+    const new_pointer = try allocator.create(@TypeOf(value));
+    new_pointer.* = value;
+    return new_pointer;
+}
+
 pub fn ErrorPayLoad(comptime Error: type, comptime PayLoad: type) type {
     return struct {
         err: Error,

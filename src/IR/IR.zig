@@ -50,7 +50,8 @@ pub fn codeGen(self: *@This(), m: tb.Module) error{OutOfMemory}!tb.Function {
     var funcIterator = self.ir.funcs.valueIterator();
 
     while (funcIterator.next()) |func| {
-        _ = func.codeGen(m, ws);
+        // _ = func.codeGen(m, ws);
+        _ = func.codeGen(m, null);
     }
 
     const startF = m.functionCreate("_start", tb.Linkage.PUBLIC);

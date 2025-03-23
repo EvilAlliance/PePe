@@ -17,7 +17,7 @@ const Result = Util.Result;
 expr: *Expression,
 loc: Location,
 
-pub fn parse(p: *Parser) Result(@This(), UnexpectedToken) {
+pub fn parse(p: *Parser) error{OutOfMemory}!Result(@This(), UnexpectedToken) {
     const r = Result(@This(), UnexpectedToken);
 
     const retToken = p.l.peek();
@@ -26,7 +26,7 @@ pub fn parse(p: *Parser) Result(@This(), UnexpectedToken) {
 
     _ = p.l.pop();
 
-    const result = Expression.parse(p);
+    const result = try Expression.parse(p);
     switch (result) {
         .err => return r.Err(result.err),
         .ok => {},

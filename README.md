@@ -1,4 +1,4 @@
-# PePe
+# Yots
 
 Compiler to fasm linux x86-64
 
@@ -28,7 +28,7 @@ A TODO (todo) app is in this repository which was built from [tsoding](https://g
 zig build
 ```
 
-Ouput executable will be in ./zig-out/bin/PePe
+Ouput executable will be in ./zig-out/bin/yot
 
 ### Build and Run Project
 
@@ -36,20 +36,20 @@ Ouput executable will be in ./zig-out/bin/PePe
 zig build run
 ```
 
-Ouput executable will be in ./zig-out/bin/PePe
+Ouput executable will be in ./zig-out/bin/yot
 
 ## Usage - Subcommands
 
 ### Build
 
 ```console
-PePe build <src>
+yot build <src>
 ```
 
 ### Build and Run
 
 ```console
-PePe run <src> <...args> -- <...executable args>
+yot run <src> <...args> -- <...executable args>
 ```
 
 ### Simulation
@@ -57,7 +57,7 @@ PePe run <src> <...args> -- <...executable args>
 Interpreter of the same language, the output should be the same
 
 ```console
-PePe sim <src> <...args> -- <...executable args>
+yot sim <src> <...args> -- <...executable args>
 ```
 
 ### Lex
@@ -65,7 +65,7 @@ PePe sim <src> <...args> -- <...executable args>
 Output file with tokens
 
 ```console
-PePe lex <src> <...args> -- <...executable args>
+yot lex <src> <...args> -- <...executable args>
 ```
 
 ### Parse
@@ -73,7 +73,7 @@ PePe lex <src> <...args> -- <...executable args>
 Output file with the statements
 
 ```console
-PePe parse <src> <...args> -- <...executable args>
+yot parse <src> <...args> -- <...executable args>
 ```
 
 ### IR
@@ -81,7 +81,7 @@ PePe parse <src> <...args> -- <...executable args>
 Output file with the intermediate represetation
 
 ```console
-PePe ir <src> <...args> -- <...executable args>
+yot ir <src> <...args> -- <...executable args>
 ```
 
 ## Arguments

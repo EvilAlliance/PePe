@@ -134,9 +134,14 @@ pub const Expression = union(enum) {
     },
     leaf: Token,
     paren: *Expression,
+    variable: Token,
 
     fn makeLeaf(alloc: std.mem.Allocator, t: Token) std.mem.Allocator.Error!*@This() {
         return Util.dupe(alloc, @This(){ .leaf = t });
+    }
+
+    fn makeVar(alloc: std.mem.Allocator, t: Token) std.mem.Allocator.Error!*@This() {
+        return Util.dupe(alloc, @This(){ .variable = t });
     }
 
     fn makeParen(alloc: std.mem.Allocator, t: *@This()) std.mem.Allocator.Error!*@This() {
@@ -157,7 +162,7 @@ pub const Expression = union(enum) {
 
     fn makeBinary(alloc: std.mem.Allocator, op: Token, left: *@This(), right: *@This()) std.mem.Allocator.Error!*@This() {
         switch (left.*) {
-            .una, .leaf, .paren => {
+            else => {
                 return Util.dupe(
                     alloc,
                     @This(){
@@ -251,6 +256,8 @@ pub const Expression = union(enum) {
             }
         } else if (nextToken.type == .numberLiteral) {
             return r.Ok(try makeLeaf(p.alloc, p.l.pop()));
+        } else if (nextToken.type == .iden) {
+            return r.Ok(try makeVar(p.alloc, p.l.pop()));
         }
         unreachable;
     }
@@ -282,16 +289,23 @@ pub const Expression = union(enum) {
         return r.Ok(expr);
     }
 
-    pub fn codeGen(self: @This(), g: tb.GraphBuilder, t: tb.DataType) *tb.Node {
+    pub fn codeGen(self: @This(), g: tb.GraphBuilder, scope: *std.StringHashMap(*tb.Node), ty: Parser.Primitive, t: tb.DataType) *tb.Node {
         return switch (self) {
-            .una => |u| Unary.get(u.op.str).?(g, u.e.codeGen(g, t), true),
-            .paren => |p| return p.codeGen(g, t),
+            .una => |u| Unary.get(u.op.str).?(g, u.e.codeGen(g, scope, ty, t), true),
+            .paren => |p| return p.codeGen(g, scope, ty, t),
             .bin => |b| {
-                const left = b.left.codeGen(g, t);
-                const right = b.right.codeGen(g, t);
+                const left = b.left.codeGen(g, scope, ty, t);
+                const right = b.right.codeGen(g, scope, ty, t);
                 return Binary.get(b.op.str).?(g, left, right, true);
             },
-            .leaf => |l| g.uint(t, std.fmt.parseUnsigned(u64, l.str, 10) catch unreachable),
+            .leaf => |l| {
+                return g.uint(t, std.fmt.parseUnsigned(u64, l.str, 10) catch unreachable);
+            },
+            .variable => |v| {
+                const addr = scope.get(v.str).?;
+
+                return g.load(0, false, t, addr, ty.size / 8, false);
+            },
         };
     }
 
@@ -317,6 +331,9 @@ pub const Expression = union(enum) {
             },
             .paren => |p| {
                 try p.toString(cont, d);
+            },
+            .variable => |v| {
+                try cont.appendSlice(v.str);
             },
         }
     }

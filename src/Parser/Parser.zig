@@ -26,6 +26,7 @@ pub const UnexpectedToken = @import("./UnexpectedToken.zig");
 pub const Primitive = @import("./Primitive.zig");
 pub const Statement = @import("./Statement.zig").Statement;
 pub const Statements = std.ArrayList(Statement);
+pub const Variable = @import("./Variable.zig");
 
 l: *Lexer,
 alloc: Allocator,
@@ -64,13 +65,16 @@ pub fn parseGlobalScope(self: *@This()) error{OutOfMemory}!?UnexpectedToken {
     var t = self.l.peek();
     if (t.type == .EOF) return null;
     while (t.type != .EOF) : (t = self.l.peek()) {
-        if (t.type == .func) {
-            const r = try Function.parse(self);
-            switch (r) {
-                .ok => try self.program.funcs.put(r.ok.name, r.ok),
-                .err => return r.err,
-            }
-            return null;
+        switch (t.type) {
+            .func => {
+                const r = try Function.parse(self);
+                switch (r) {
+                    .ok => try self.program.funcs.put(r.ok.name, r.ok),
+                    .err => return r.err,
+                }
+                return null;
+            },
+            else => unreachable,
         }
     }
 

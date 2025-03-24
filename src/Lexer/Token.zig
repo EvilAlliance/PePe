@@ -20,6 +20,8 @@ pub const TokenType = enum {
     numberLiteral,
     iden,
     symbol,
+    let,
+    mut,
     EOF,
 
     pub fn isSymbol(str: []const u8) bool {
@@ -68,6 +70,10 @@ pub const TokenType = enum {
                 'a'...'z', 'A'...'Z' => return TokenType.iden,
                 else => return TokenType.symbol,
             }
+        } else if (std.mem.eql(u8, str, "mut")) {
+            return TokenType.mut;
+        } else if (std.mem.eql(u8, str, "let")) {
+            return TokenType.let;
         } else if (std.mem.eql(u8, str, "return")) {
             return TokenType.ret;
         } else if (std.mem.eql(u8, str, "fn")) {

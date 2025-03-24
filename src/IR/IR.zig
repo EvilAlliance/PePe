@@ -11,6 +11,7 @@ pub const Return = @import("./Return.zig");
 pub const Instruction = @import("./Instruction.zig").Instruction;
 pub const Function = @import("./Function.zig");
 pub const Program = @import("./Program.zig");
+pub const Variable = @import("./Variable.zig");
 
 const tb = @import("../libs/tb/tb.zig");
 const tbHelper = @import("../TBHelper.zig");
@@ -51,7 +52,7 @@ pub fn codeGen(self: *@This(), m: tb.Module) error{OutOfMemory}!tb.Function {
 
     while (funcIterator.next()) |func| {
         // _ = func.codeGen(m, ws);
-        _ = func.codeGen(m, null);
+        _ = try func.codeGen(self.alloc, m, null);
     }
 
     const startF = m.functionCreate("_start", tb.Linkage.PUBLIC);

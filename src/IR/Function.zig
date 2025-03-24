@@ -29,7 +29,9 @@ pub fn init(alloc: std.mem.Allocator, f: Parser.Function, m: tb.Module) @This() 
     };
 }
 
-pub fn codeGen(self: @This(), m: tb.Module, funcWS: ?tb.Worklist) tb.Function {
+pub fn codeGen(self: @This(), alloc: std.mem.Allocator, m: tb.Module, funcWS: ?tb.Worklist) std.mem.Allocator.Error!tb.Function {
+    var scope = std.StringHashMap(*tb.Node).init(alloc);
+
     const textSection = m.getText();
 
     const func = self.func;
@@ -39,7 +41,7 @@ pub fn codeGen(self: @This(), m: tb.Module, funcWS: ?tb.Worklist) tb.Function {
     defer g.exit();
 
     for (self.body.items) |inst| {
-        inst.codeGen(g, self);
+        try inst.codeGen(g, self, &scope);
     }
 
     return func;

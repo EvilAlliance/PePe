@@ -4,6 +4,7 @@ pub const Parser = @import("./Parser.zig");
 pub const Function = Parser.Function;
 pub const Return = Parser.Return;
 pub const UnexpectedToken = Parser.UnexpectedToken;
+pub const Variable = Parser.Variable;
 
 pub const Lexer = @import("../Lexer/Lexer.zig");
 pub const Token = Lexer.Token;
@@ -18,6 +19,7 @@ const Result = Util.Result;
 pub const Statement = union(enum) {
     ret: Return,
     func: Function,
+    let: Variable,
 
     pub fn parse(p: *Parser, t: Token) error{OutOfMemory}!Result(@This(), UnexpectedToken) {
         const r = Result(@This(), UnexpectedToken);
@@ -26,6 +28,13 @@ pub const Statement = union(enum) {
                 const state = try Return.parse(p);
                 switch (state) {
                     .ok => return r.Ok(@This(){ .ret = state.ok }),
+                    .err => return r.Err(state.err),
+                }
+            },
+            .let => {
+                const state = try Variable.parse(p);
+                switch (state) {
+                    .ok => return r.Ok(@This(){ .let = state.ok }),
                     .err => return r.Err(state.err),
                 }
             },
@@ -42,9 +51,8 @@ pub const Statement = union(enum) {
 
     pub fn toIR(self: @This(), alloc: std.mem.Allocator, prog: *IR.Program, m: tb.Module) error{OutOfMemory}!?IR.Instruction {
         switch (self) {
-            .ret => |r| return IR.Instruction{
-                .ret = r.toIR(),
-            },
+            .ret => |r| return IR.Instruction{ .ret = r.toIR() },
+            .let => |v| return IR.Instruction{ .variable = v.toIR() },
             .func => |f| try prog.funcs.put(f.name, try f.toIR(alloc, prog, m)),
         }
         return null;
@@ -53,6 +61,7 @@ pub const Statement = union(enum) {
     pub fn toString(self: @This(), cont: *std.ArrayList(u8), d: u64) error{OutOfMemory}!void {
         switch (self) {
             .ret => |ret| try ret.toString(cont, d),
+            .let => |let| try let.toString(cont, d),
             .func => |func| try func.toString(cont, d),
         }
     }

@@ -1,4 +1,5 @@
 const std = @import("std");
+const Logger = @import("Logger.zig");
 const util = @import("Util.zig");
 
 pub const Arguments = struct {
@@ -33,7 +34,7 @@ pub fn getArguments() ?Arguments {
 
     while (argsIterator.next()) |arg| {
         args.append(arg) catch {
-            std.log.err("Out of space, too many args, max = 1024. Change soruce code", .{});
+            Logger.log.err("Out of space, too many args, max = 1024. Change soruce code", .{});
             return null;
         };
     }
@@ -42,10 +43,10 @@ pub fn getArguments() ?Arguments {
     switch (a) {
         .err => |err| {
             switch (err.err) {
-                error.noSubcommandProvided => std.log.err("No subcommand provided\n", .{}),
-                error.noFilePathProvided => std.log.err("No file provided\n", .{}),
-                error.unknownSubcommand => std.log.err("Unknown subcommand {s}\n", .{err.payload.?}),
-                error.unknownArgument => std.log.err("unknown argument {s}\n", .{err.payload.?}),
+                error.noSubcommandProvided => Logger.log.err("No subcommand provided\n", .{}),
+                error.noFilePathProvided => Logger.log.err("No file provided\n", .{}),
+                error.unknownSubcommand => Logger.log.err("Unknown subcommand {s}\n", .{err.payload.?}),
+                error.unknownArgument => Logger.log.err("unknown argument {s}\n", .{err.payload.?}),
                 else => unreachable,
             }
             return null;

@@ -15,7 +15,7 @@ fn init(alloc: std.mem.Allocator, name: []const u8) @This() {
     };
 }
 
-pub fn toString(self: @This(), cont: *std.ArrayList(u8), d: u64) error{OutOfMemory}!void {
+pub fn toString(self: @This(), cont: *std.ArrayList(u8), d: u64) std.mem.Allocator.Error!void {
     for (0..d) |_|
         try cont.append(' ');
 

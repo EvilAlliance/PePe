@@ -1,4 +1,5 @@
 const std = @import("std");
+const Logger = @import("../Logger.zig");
 const assert = std.debug.assert;
 
 const Parser = @import("./Parser.zig");
@@ -24,77 +25,71 @@ body: Statements,
 returnType: Primitive,
 loc: Location,
 
-pub fn parse(p: *Parser) error{OutOfMemory}!Result(@This(), UnexpectedToken) {
-    const r = Result(@This(), UnexpectedToken);
-
-    var unexpected: ?UnexpectedToken = undefined;
-
+pub fn parse(p: *Parser) (std.mem.Allocator.Error || error{UnexpectedToken})!@This() {
     const func = p.l.peek();
     assert(func.type == .func);
 
     _ = p.l.pop();
 
     const name = p.l.pop();
-    unexpected = Parser.expect(name, .iden);
-    if (unexpected) |u| return r.Err(u);
+    if (!try p.expect(name, &[_]Lexer.TokenType{.iden})) return error.UnexpectedToken;
     const funcLoc = name.loc;
 
     var separator = p.l.pop();
-    unexpected = Parser.expect(separator, .openParen);
-    if (unexpected) |u| return r.Err(u);
+
+    if (!try p.expect(separator, &[_]Lexer.TokenType{.openParen})) return error.UnexpectedToken;
 
     // TODO: ARGS
 
     separator = p.l.pop();
-    unexpected = Parser.expect(separator, .closeParen);
-    if (unexpected) |u| return r.Err(u);
+
+    if (!try p.expect(separator, &[_]Lexer.TokenType{.closeParen})) return error.UnexpectedToken;
 
     const ret = p.l.pop();
-    unexpected = Parser.expect(ret, .iden);
-    if (unexpected) |u| return r.Err(u);
+
+    if (!try p.expect(ret, &[_]Lexer.TokenType{.iden})) return error.UnexpectedToken;
 
     separator = p.l.pop();
-    unexpected = Parser.expect(separator, .openBrace);
-    if (unexpected) |u| return r.Err(u);
+
+    if (!try p.expect(separator, &[_]Lexer.TokenType{.openBrace})) return error.UnexpectedToken;
 
     const state = try parseBody(p);
-    switch (state) {
-        .ok => {},
-        .err => return r.Err(state.err),
-    }
 
     separator = p.l.pop();
-    unexpected = Parser.expect(separator, .closeBrace);
-    if (unexpected) |u| return r.Err(u);
 
-    return r.Ok(@This(){
+    if (!try p.expect(separator, &[_]Lexer.TokenType{.closeBrace})) return error.UnexpectedToken;
+
+    return @This(){
         .name = name.str,
         // .args = void,
         .returnType = Primitive.getType(ret.str),
-        .body = state.ok,
+        .body = state,
         .loc = funcLoc,
-    });
+    };
 }
 
-fn parseBody(p: *Parser) error{OutOfMemory}!Result(Statements, UnexpectedToken) {
-    const r = Result(Statements, UnexpectedToken);
+fn parseBody(p: *Parser) std.mem.Allocator.Error!Statements {
     var statements = Statements.init(p.alloc);
 
     var t = p.l.peek();
 
     while (t.type != .closeBrace) : (t = p.l.peek()) {
-        const state = try Statement.parse(p, t);
+        const state = Statement.parse(p, t) catch |err| switch (err) {
+            error.UnexpectedToken => {
+                while (p.l.peek().type != .semicolon) : (_ = p.l.pop()) {}
+                _ = p.l.pop();
+                continue;
+            },
+            else => |e| return e,
+        };
 
-        switch (state) {
-            .ok => try statements.append(state.ok),
-            .err => return r.Err(state.err),
-        }
+        try statements.append(state);
     }
 
-    return r.Ok(statements);
+    return statements;
 }
 
-pub fn toIR(self: @This(), alloc: std.mem.Allocator, prog: *IR.Program, m: tb.Module) error{OutOfMemory}!IR.Function {
+pub fn toIR(self: @This(), alloc: std.mem.Allocator, prog: *IR.Program, m: tb.Module) std.mem.Allocator.Error!IR.Function {
     var f = IR.Function.init(alloc, self, m);
     for (self.body.items) |stmt| {
         const inst = try stmt.toIR(alloc, prog, m);
@@ -105,7 +100,7 @@ pub fn toIR(self: @This(), alloc: std.mem.Allocator, prog: *IR.Program, m: tb.Mo
     return f;
 }
 
-pub fn toString(self: @This(), cont: *std.ArrayList(u8), d: u64) error{OutOfMemory}!void {
+pub fn toString(self: @This(), cont: *std.ArrayList(u8), d: u64) std.mem.Allocator.Error!void {
     for (0..d) |_|
         try cont.append(' ');
 

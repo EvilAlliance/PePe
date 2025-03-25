@@ -1,4 +1,5 @@
 const std = @import("std");
+const Logger = @import("../Logger.zig");
 
 const IR = @import("IR.zig");
 const Intrinsic = IR.Intrinsic;
@@ -19,7 +20,7 @@ pub const Instruction = union(enum) {
     pub fn codeGen(self: @This(), g: tb.GraphBuilder, f: IR.Function, scope: *std.StringHashMap(*tb.Node)) std.mem.Allocator.Error!void {
         switch (self) {
             .ret => |ret| {
-                std.log.warn("Only parsing expr of return value as unsigned and I assume there is a return of unsigned", .{});
+                Logger.log.warn("Only parsing expr of return value as unsigned and I assume there is a return of unsigned", .{});
                 var node = ret.expr.codeGen(g, scope, f.returnType, tbHelper.getType(f.returnType));
                 g.ret(0, 1, @ptrCast(&node));
             },
@@ -28,7 +29,7 @@ pub const Instruction = union(enum) {
         }
     }
 
-    pub fn toString(self: @This(), cont: *std.ArrayList(u8), d: u64) error{OutOfMemory}!void {
+    pub fn toString(self: @This(), cont: *std.ArrayList(u8), d: u64) std.mem.Allocator.Error!void {
         switch (self) {
             .intrinsic => |in| try in.toString(cont, d),
             .ret => |in| try in.toString(cont, d),

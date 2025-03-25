@@ -1,23 +1,32 @@
 const std = @import("std");
+const Logger = @import("../Logger.zig");
 
 const Lexer = @import("../Lexer/Lexer.zig");
 const TokenType = Lexer.TokenType;
 const Token = Lexer.Token;
 const Location = Lexer.Location;
 
-expected: TokenType,
+expected: []TokenType,
 found: TokenType,
 path: []const u8,
-absPath: []const u8,
 loc: Location,
+alloc: std.mem.Allocator,
 
 pub fn display(self: @This()) void {
-    std.log.err("Expected: {},\nFound: {},\nIn:{s}:{}:{}\n", .{
-        self.expected,
-        self.found,
-        self.path,
-        self.loc.row,
-        self.loc.col,
+    var arr = std.BoundedArray(u8, 10 * 1024).init(0) catch return;
+
+    arr.appendSlice(@tagName(self.expected[0])) catch return;
+    for (self.expected[1..]) |e| {
+        arr.appendSlice(", ") catch return;
+        arr.appendSlice(@tagName(e)) catch return;
+    }
+
+    Logger.logLocation.err(self.loc, "Expected: {s} but found: {s}", .{
+        arr.buffer,
+        @tagName(self.found),
     });
-    self.loc.print(std.log.err);
+}
+
+pub fn deinit(self: @This()) void {
+    self.alloc.free(self.expected);
 }

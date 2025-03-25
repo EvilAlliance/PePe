@@ -1,4 +1,5 @@
 const std = @import("std");
+const Logger = @import("Logger.zig");
 const util = @import("Util.zig");
 const Lexer = @import("./Lexer/Lexer.zig");
 const ParseArguments = @import("ParseArgs.zig");
@@ -17,39 +18,6 @@ const IR = @import("IR/IR.zig");
 
 const tb = @import("./libs/tb/tb.zig");
 
-var silence = false;
-
-pub const std_options: std.Options = .{
-    .logFn = log,
-};
-
-fn log(
-    comptime message_level: std.log.Level,
-    comptime scope: @TypeOf(.EnumLiteral),
-    comptime format: []const u8,
-    args: anytype,
-) void {
-    if (silence and message_level != .err) return;
-    const level_txt = comptime switch (message_level) {
-        .info => "[INFO]",
-        .warn => "[WARNING]",
-        .err => "[ERROR]",
-        .debug => "[DEBUG]",
-    };
-
-    const prefix2 = if (scope == .default) " " else "(" ++ @tagName(scope) ++ "): ";
-    const stderr = std.io.getStdErr().writer();
-    var bw = std.io.bufferedWriter(stderr);
-    const writer = bw.writer();
-
-    std.debug.lockStdErr();
-    defer std.debug.unlockStdErr();
-    nosuspend {
-        writer.print(level_txt ++ prefix2 ++ format ++ "\n", args) catch return;
-        bw.flush() catch return;
-    }
-}
-
 fn getName(absPath: []const u8, extName: []const u8) []u8 {
     var buf: [5 * 1024]u8 = undefined;
 
@@ -57,7 +25,7 @@ fn getName(absPath: []const u8, extName: []const u8) []u8 {
     const ext = std.mem.lastIndexOf(u8, absPath, ".").?;
     if (extName.len > 0)
         return std.fmt.bufPrint(&buf, "{s}.{s}", .{ absPath[fileName + 1 .. ext], extName }) catch {
-            std.log.err("Name is to larger than {}\n", .{5 * 1024});
+            Logger.log.err("Name is to larger than {}\n", .{5 * 1024});
             return "";
         }
     else
@@ -76,7 +44,7 @@ fn writeAll(c: []const u8, arg: Arguments, name: []u8) void {
         writer = std.io.getStdOut().writer();
     } else {
         file = std.fs.cwd().createFile(name, .{}) catch |err| {
-            std.log.err("could not open file ({s}) becuase {}\n", .{ arg.path, err });
+            Logger.log.err("could not open file ({s}) becuase {}\n", .{ arg.path, err });
             return;
         };
 
@@ -84,7 +52,7 @@ fn writeAll(c: []const u8, arg: Arguments, name: []u8) void {
     }
 
     writer.writeAll(c) catch |err| {
-        std.log.err("Could not write to file ({s}) becuase {}\n", .{ arg.path, err });
+        Logger.log.err("Could not write to file ({s}) becuase {}\n", .{ arg.path, err });
         return;
     };
 }
@@ -92,24 +60,24 @@ fn writeAll(c: []const u8, arg: Arguments, name: []u8) void {
 fn generateExecutable(alloc: std.mem.Allocator, m: tb.Module, a: *tb.Arena, path: []const u8) u8 {
     const eb = m.objectExport(a, tb.DebugFormat.NONE);
     if (!eb.toFile(("mainModule.o"))) {
-        std.log.err("Could not export object to file", .{});
+        Logger.log.err("Could not export object to file", .{});
         return 1;
     }
 
     var cmdObj = Commnad.init(alloc, &[_][]const u8{ "ld", "mainModule.o", "-o", path }, false);
     const resultObj = cmdObj.execute() catch {
-        std.log.err("Could not link the generated object file", .{});
+        Logger.log.err("Could not link the generated object file", .{});
         return 1;
     };
 
     var cmdClean = Commnad.init(alloc, &[_][]const u8{ "rm", "mainModule.o" }, false);
     _ = cmdClean.execute() catch {
-        std.log.err("Could not clean the generated object file", .{});
+        Logger.log.err("Could not clean the generated object file", .{});
     };
 
     switch (resultObj) {
-        .Exited => |x| if (x != 0) std.log.err("Could not link generated object file", .{}),
-        else => std.log.err("Could not link generated object file", .{}),
+        .Exited => |x| if (x != 0) Logger.log.err("Could not link generated object file", .{}),
+        else => Logger.log.err("Could not link generated object file", .{}),
     }
 
     return 0;
@@ -128,15 +96,16 @@ pub fn main() u8 {
         return 1;
     };
 
-    silence = arguments.silence;
+    Logger.silence = arguments.silence;
 
     _ = arena.reset(std.heap.ArenaAllocator.ResetMode.retain_capacity);
 
     if (arguments.run and arguments.stdout) {
-        std.log.warn("Subcommand run wont print anything", .{});
+        Logger.log.warn("Subcommand run wont print anything", .{});
     }
 
-    std.log.info("Lexing and Parsing", .{});
+    if (arguments.bench)
+        Logger.log.info("Lexing and Parsing", .{});
     var lexer = lex(alloc, arguments) orelse {
         usage();
         return 1;
@@ -145,7 +114,7 @@ pub fn main() u8 {
 
     if (arguments.lex) {
         const lexContent = lexer.toString(alloc) catch {
-            std.log.err("Out of memory", .{});
+            Logger.log.err("Out of memory", .{});
             return 1;
         };
         defer lexContent.deinit();
@@ -158,22 +127,26 @@ pub fn main() u8 {
 
     var parser = Parser.init(alloc, &lexer);
     defer parser.deinit();
-    const unexpected = parser.parse() catch {
-        std.log.err("Out of memory", .{});
-        return 1;
+    var unexpectedToken = false;
+    parser.parse() catch |err| switch (err) {
+        error.OutOfMemory => {
+            Logger.log.err("Out of memory", .{});
+            return 1;
+        },
+        error.UnexpectedToken => {
+            unexpectedToken = true;
+            for (parser.errors.items) |e| {
+                e.display();
+            }
+        },
     };
 
-    if (unexpected) |err| {
-        err.display();
-        return 1;
-    }
-
     if (arguments.bench)
-        std.log.info("Finished in {}", .{std.fmt.fmtDuration(timer.lap())});
+        Logger.log.info("Finished in {}", .{std.fmt.fmtDuration(timer.lap())});
 
     if (arguments.parse) {
         const cont = parser.toString(alloc) catch {
-            std.log.err("Out of memory", .{});
+            Logger.log.err("Out of memory", .{});
             return 1;
         };
         defer cont.deinit();
@@ -184,33 +157,37 @@ pub fn main() u8 {
         return 0;
     }
 
-    std.log.info("Type Checking", .{});
+    if (arguments.bench)
+        Logger.log.info("Type Checking", .{});
 
     if (typeCheck(parser.program) catch {
-        std.log.err("out of memory", .{});
+        Logger.log.err("out of memory", .{});
         return 1;
     }) return 1;
 
-    if (arguments.bench)
-        std.log.info("Finished in {}", .{std.fmt.fmtDuration(timer.lap())});
+    if (unexpectedToken) return 1;
 
-    std.log.info("Intermediate Represetation", .{});
+    if (arguments.bench)
+        Logger.log.info("Finished in {}", .{std.fmt.fmtDuration(timer.lap())});
+
+    if (arguments.bench)
+        Logger.log.info("Intermediate Represetation", .{});
     var ir = IR.init(&parser.program, alloc);
     defer ir.deinit();
 
     const m = tb.Module.create(tb.Arch.X86_64, tb.System.LINUX, arguments.run);
 
     ir.toIR(m) catch {
-        std.log.err("out of memory", .{});
+        Logger.log.err("out of memory", .{});
         return 1;
     };
 
     if (arguments.bench)
-        std.log.info("Finished in {}", .{std.fmt.fmtDuration(timer.lap())});
+        Logger.log.info("Finished in {}", .{std.fmt.fmtDuration(timer.lap())});
 
     if (arguments.ir) {
         const cont = ir.toString(alloc) catch {
-            std.log.err("Out of memory", .{});
+            Logger.log.err("Out of memory", .{});
             return 1;
         };
         defer cont.deinit();
@@ -221,7 +198,8 @@ pub fn main() u8 {
         return 0;
     }
 
-    std.log.info("CodeGen", .{});
+    if (arguments.bench)
+        Logger.log.info("CodeGen", .{});
 
     const path = getName(lexer.absPath, "");
 
@@ -230,12 +208,12 @@ pub fn main() u8 {
     defer a.destroy();
 
     const startF = ir.codeGen(m) catch {
-        std.log.err("Out of memory", .{});
+        Logger.log.err("Out of memory", .{});
         return 1;
     };
 
     if (arguments.bench)
-        std.log.info("Finished in {}", .{std.fmt.fmtDuration(timer.lap())});
+        Logger.log.info("Finished in {}", .{std.fmt.fmtDuration(timer.lap())});
 
     if (!arguments.run and arguments.stdout) {
         startF.print();

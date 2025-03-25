@@ -34,7 +34,7 @@ pub fn codeGen(self: @This(), g: tb.GraphBuilder, scope: *std.StringHashMap(*tb.
     return addr;
 }
 
-pub fn toString(self: @This(), cont: *std.ArrayList(u8), d: u64) error{OutOfMemory}!void {
+pub fn toString(self: @This(), cont: *std.ArrayList(u8), d: u64) std.mem.Allocator.Error!void {
     for (0..d) |_|
         try cont.append(' ');
 

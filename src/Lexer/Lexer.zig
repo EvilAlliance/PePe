@@ -1,6 +1,8 @@
 const std = @import("std");
 const util = @import("./../Util.zig");
 
+const Logger = @import("../Logger.zig");
+
 const Arguments = @import("./../ParseArgs.zig").Arguments;
 
 pub const Location = @import("./Location.zig");
@@ -35,13 +37,14 @@ pub const separator = "(){};" ++ separatorIgnore;
 // - (26 * 2) a-z A-Z
 // - 10 numbres
 // - 5 printable separator
-pub const symbols: [(127 - 33) - (26 * 2) - 10 - 5]u8 = blk: {
-    var result: [(127 - 33) - (26 * 2) - 10 - 5]u8 = undefined;
+// _ should be possible to use as an identifier
+pub const symbols: [(127 - 33) - (26 * 2) - 10 - 5 - 1]u8 = blk: {
+    var result: [(127 - 33) - (26 * 2) - 10 - 5 - 1]u8 = undefined;
     var index: usize = 0;
 
     for (33..127) |i| {
         const c: u8 = @intCast(i);
-        if (!std.ascii.isAlphanumeric(c) and !util.listContains(u8, separator, i)) {
+        if (!std.ascii.isAlphanumeric(c) and !util.listContains(u8, separator, i) and i != '_') {
             result[index] = c;
             index += 1;
         }
@@ -108,7 +111,7 @@ pub fn pop(self: *@This()) Token {
     return t;
 }
 
-pub fn toString(self: *@This(), alloc: std.mem.Allocator) error{OutOfMemory}!std.ArrayList(u8) {
+pub fn toString(self: *@This(), alloc: std.mem.Allocator) std.mem.Allocator.Error!std.ArrayList(u8) {
     var cont = std.ArrayList(u8).init(alloc);
 
     var t = self.pop();
@@ -152,10 +155,10 @@ pub fn deinit(self: @This()) void {
 pub fn lex(alloc: Allocator, arguments: Arguments) ?@This() {
     const lexer = @This().init(alloc, arguments.path) catch |err| {
         switch (err) {
-            error.couldNotOpenFile => std.log.err("Could not open file: {s}\n", .{arguments.path}),
-            error.couldNotReadFile => std.log.err("Could not read file: {s}]n", .{arguments.path}),
-            error.couldNotGetFileSize => std.log.err("Could not get file ({s}) size\n", .{arguments.path}),
-            error.couldNotGetAbsolutePath => std.log.err("Could not get absolute path of file ({s})\n", .{arguments.path}),
+            error.couldNotOpenFile => Logger.log.err("Could not open file: {s}\n", .{arguments.path}),
+            error.couldNotReadFile => Logger.log.err("Could not read file: {s}]n", .{arguments.path}),
+            error.couldNotGetFileSize => Logger.log.err("Could not get file ({s}) size\n", .{arguments.path}),
+            error.couldNotGetAbsolutePath => Logger.log.err("Could not get absolute path of file ({s})\n", .{arguments.path}),
         }
         return null;
     };

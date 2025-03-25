@@ -86,7 +86,7 @@ pub fn possibleValue(self: @This(), expr: *Expression) bool {
     // }
 }
 
-pub fn toString(self: @This(), cont: *std.ArrayList(u8)) error{OutOfMemory}!void {
+pub fn toString(self: @This(), cont: *std.ArrayList(u8)) std.mem.Allocator.Error!void {
     const size = try std.fmt.allocPrint(cont.allocator, "{}", .{self.size});
     try switch (self.type) {
         .void => cont.appendSlice("void"),

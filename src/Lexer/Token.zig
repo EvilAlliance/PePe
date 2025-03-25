@@ -37,7 +37,7 @@ pub const TokenType = enum {
         assert(str.len > 0);
         if (std.ascii.isDigit(str[0])) return false;
         for (str) |c| {
-            if (!std.ascii.isAlphanumeric(c)) return false;
+            if (!std.ascii.isAlphanumeric(c) and c != '_') return false;
         }
 
         return true;
@@ -106,7 +106,7 @@ pub fn init(path: []const u8, absPath: []const u8, str: []const u8, loc: Locatio
     };
 }
 
-pub fn toString(self: @This(), alloc: Allocator, cont: *std.ArrayList(u8)) error{OutOfMemory}!void {
+pub fn toString(self: @This(), alloc: Allocator, cont: *std.ArrayList(u8)) std.mem.Allocator.Error!void {
     try cont.appendSlice(self.path);
     try cont.append(':');
 

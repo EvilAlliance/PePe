@@ -1,4 +1,5 @@
 const std = @import("std");
+const Logger = @import("../Logger.zig");
 
 const Parser = @import("Parser.zig");
 const UnexpectedToken = Parser.UnexpectedToken;
@@ -7,7 +8,6 @@ const Lexer = @import("../Lexer/Lexer.zig");
 const Token = Lexer.Token;
 
 const Util = @import("../Util.zig");
-const Result = Util.Result;
 
 const IR = @import("../IR/IR.zig");
 
@@ -57,7 +57,7 @@ const BinaryFunction = struct {
         return g.binopInt(tb.NodeType.UMOD, left, right, tb.ArithmeticBehavior.NONE);
     }
     pub fn power(g: tb.GraphBuilder, base: *tb.Node, exp: *tb.Node, unsigned: bool) *tb.Node {
-        std.log.warn("Unstable with optimizer", .{});
+        Logger.log.warn("Power is unstable with optimizer", .{});
 
         _ = unsigned;
 
@@ -206,26 +206,23 @@ pub const Expression = union(enum) {
         }
     }
 
-    fn parseTerm(p: *Parser) std.mem.Allocator.Error!Result(*@This(), UnexpectedToken) {
-        const r = Result(*@This(), UnexpectedToken);
-
+    fn parseTerm(p: *Parser) (std.mem.Allocator.Error || error{UnexpectedToken})!*@This() {
         var nextToken = p.l.peek();
+
+        if (!try p.expect(nextToken, &[_]Lexer.TokenType{ .openParen, .symbol, .numberLiteral, .iden })) return error.UnexpectedToken;
 
         if (nextToken.type == .openParen) {
             depth += 1;
             _ = p.l.pop();
 
-            const expr = switch (try parse(p)) {
-                .ok => |ok| ok,
-                .err => |err| return r.Err(err),
-            };
+            const expr = try parse(p);
 
             if (p.l.pop().type != .closeParen) unreachable;
 
-            if (depth == 0) unreachable;
+            std.debug.assert(depth != 0);
             depth -= 1;
 
-            return r.Ok(try makeParen(p.alloc, expr));
+            return try makeParen(p.alloc, expr);
         } else if (nextToken.type == .symbol) {
             const op = p.l.pop();
             nextToken = p.l.peek();
@@ -233,60 +230,43 @@ pub const Expression = union(enum) {
                 depth += 1;
                 _ = p.l.pop();
 
-                const expr = switch (try parse(p)) {
-                    .ok => |ok| ok,
-                    .err => |err| return r.Err(err),
-                };
-
-                if (p.l.pop().type != .closeParen) unreachable;
+                const expr = try parse(p);
+                if (!try p.expect(p.l.pop(), &[_]Lexer.TokenType{.closeParen})) return error.UnexpectedToken;
 
                 if (depth == 0) unreachable;
                 depth -= 1;
 
-                return r.Ok(try makeUnary(p.alloc, op, try makeParen(p.alloc, expr)));
+                return try makeUnary(p.alloc, op, try makeParen(p.alloc, expr));
             } else if (nextToken.type == .symbol) {
-                const expr = switch (try parseTerm(p)) {
-                    .ok => |ok| ok,
-                    .err => |err| return r.Err(err),
-                };
-
-                return r.Ok(try makeUnary(p.alloc, op, expr));
+                const expr = try parseTerm(p);
+                return try makeUnary(p.alloc, op, expr);
             } else if (nextToken.type == .numberLiteral) {
-                return r.Ok(try makeUnary(p.alloc, op, try makeLeaf(p.alloc, p.l.pop())));
+                return try makeUnary(p.alloc, op, try makeLeaf(p.alloc, p.l.pop()));
             }
         } else if (nextToken.type == .numberLiteral) {
-            return r.Ok(try makeLeaf(p.alloc, p.l.pop()));
+            return try makeLeaf(p.alloc, p.l.pop());
         } else if (nextToken.type == .iden) {
-            return r.Ok(try makeVar(p.alloc, p.l.pop()));
+            return try makeVar(p.alloc, p.l.pop());
         }
         unreachable;
     }
 
-    pub fn parse(p: *Parser) std.mem.Allocator.Error!Result(*@This(), UnexpectedToken) {
-        const r = Result(*@This(), UnexpectedToken);
+    pub fn parse(p: *Parser) (std.mem.Allocator.Error || error{UnexpectedToken})!*@This() {
         var nextToken = p.l.peek();
         if (nextToken.type == .semicolon) unreachable;
 
-        var expr = switch (try parseTerm(p)) {
-            .ok => |ok| ok,
-            .err => |err| return r.Err(err),
-        };
-
+        var expr = try parseTerm(p);
         nextToken = p.l.peek();
 
         while (nextToken.type != .semicolon and nextToken.type != .closeParen) : (nextToken = p.l.peek()) {
             const op = p.l.pop();
             if (op.type != .symbol) unreachable;
 
-            const right = switch (try parseTerm(p)) {
-                .ok => |ok| ok,
-                .err => |err| return r.Err(err),
-            };
-
+            const right = try parseTerm(p);
             expr = try makeBinary(p.alloc, op, expr, right);
         }
 
-        return r.Ok(expr);
+        return expr;
     }
 
     pub fn codeGen(self: @This(), g: tb.GraphBuilder, scope: *std.StringHashMap(*tb.Node), ty: Parser.Primitive, t: tb.DataType) *tb.Node {
@@ -309,7 +289,7 @@ pub const Expression = union(enum) {
         };
     }
 
-    pub fn toString(self: @This(), cont: *std.ArrayList(u8), d: u64) error{OutOfMemory}!void {
+    pub fn toString(self: @This(), cont: *std.ArrayList(u8), d: u64) std.mem.Allocator.Error!void {
         switch (self) {
             .bin => |b| {
                 try cont.append('(');

@@ -12,43 +12,34 @@ const UnexpectedToken = Parser.UnexpectedToken;
 pub const IR = @import("../IR/IR.zig");
 
 const Util = @import("../Util.zig");
-const Result = Util.Result;
 
 expr: *Expression,
 loc: Location,
 
-pub fn parse(p: *Parser) error{OutOfMemory}!Result(@This(), UnexpectedToken) {
-    const r = Result(@This(), UnexpectedToken);
-
+pub fn parse(p: *Parser) (std.mem.Allocator.Error || error{UnexpectedToken})!@This() {
     const retToken = p.l.peek();
     assert(retToken.type == .ret);
     const retLoc = retToken.loc;
 
     _ = p.l.pop();
 
-    const result = try Expression.parse(p);
-    switch (result) {
-        .err => return r.Err(result.err),
-        .ok => {},
-    }
-    const expr = result.ok;
+    const expr = try Expression.parse(p);
     const ret = @This(){
         .expr = expr,
         .loc = retLoc,
     };
 
     const separator = p.l.pop();
-    const unexpected = Parser.expect(separator, .semicolon);
-    if (unexpected) |u| return r.Err(u);
+    if (!try p.expect(separator, &[_]Lexer.TokenType{.semicolon})) return error.UnexpectedToken;
 
-    return r.Ok(ret);
+    return ret;
 }
 
 pub fn toIR(self: @This()) IR.Return {
     return IR.Return.init(self.expr);
 }
 
-pub fn toString(self: @This(), cont: *std.ArrayList(u8), d: u64) error{OutOfMemory}!void {
+pub fn toString(self: @This(), cont: *std.ArrayList(u8), d: u64) std.mem.Allocator.Error!void {
     for (0..d) |_|
         try cont.append(' ');
 

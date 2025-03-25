@@ -20,57 +20,53 @@ loc: Lexer.Location,
 t: Primitive,
 expr: *Expression,
 
-pub fn parse(p: *Parser) error{OutOfMemory}!Util.Result(@This(), UnexpectedToken) {
-    const r = Util.Result(@This(), UnexpectedToken);
-
+pub fn parse(p: *Parser) (std.mem.Allocator.Error || error{UnexpectedToken})!@This() {
     const letToken = p.l.peek();
     assert(letToken.type == .let);
     _ = p.l.pop();
 
     const mutToken = p.l.peek();
-    assert(mutToken.type == .mut);
+    if (!try p.expect(mutToken, &[_]Lexer.TokenType{.mut})) return error.UnexpectedToken;
     _ = p.l.pop();
 
     const name = p.l.peek();
-    assert(name.type == .iden);
+    if (!try p.expect(name, &[_]Lexer.TokenType{.iden})) return error.UnexpectedToken;
     _ = p.l.pop();
 
     const colon = p.l.peek();
+    if (!try p.expect(colon, &[_]Lexer.TokenType{.symbol})) return error.UnexpectedToken;
     assert(colon.type == .symbol and colon.str.len == 1 and colon.str[0] == ':');
     _ = p.l.pop();
 
     const t = p.l.peek();
-    assert(t.type == .iden);
+    if (!try p.expect(t, &[_]Lexer.TokenType{.iden})) return error.UnexpectedToken;
     _ = p.l.pop();
 
     const equal = p.l.peek();
+    if (!try p.expect(equal, &[_]Lexer.TokenType{.symbol})) return error.UnexpectedToken;
     assert(equal.type == .symbol and equal.str.len == 1 and equal.str[0] == '=');
     _ = p.l.pop();
 
     const expr = try Expression.parse(p);
-    switch (expr) {
-        .err => return r.Err(expr.err),
-        .ok => {},
-    }
 
     const semi = p.l.peek();
-    assert(semi.type == .semicolon);
+    if (!try p.expect(semi, &[_]Lexer.TokenType{.semicolon})) return error.UnexpectedToken;
     _ = p.l.pop();
 
-    return r.Ok(@This(){
+    return @This(){
         .mut = true,
         .name = name.str,
         .loc = letToken.loc,
         .t = Primitive.getType(t.str),
-        .expr = expr.ok,
-    });
+        .expr = expr,
+    };
 }
 
 pub fn toIR(self: @This()) IR.Variable {
     return IR.Variable.init(self);
 }
 
-pub fn toString(self: @This(), cont: *std.ArrayList(u8), d: u64) error{OutOfMemory}!void {
+pub fn toString(self: @This(), cont: *std.ArrayList(u8), d: u64) std.mem.Allocator.Error!void {
     for (0..d) |_|
         try cont.append(' ');
 

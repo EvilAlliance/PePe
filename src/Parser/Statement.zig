@@ -21,35 +21,31 @@ pub const Statement = union(enum) {
     func: Function,
     let: Variable,
 
-    pub fn parse(p: *Parser, t: Token) error{OutOfMemory}!Result(@This(), UnexpectedToken) {
-        const r = Result(@This(), UnexpectedToken);
+    pub fn parse(p: *Parser, t: Token) (std.mem.Allocator.Error || error{UnexpectedToken})!@This() {
         switch (t.type) {
             .ret => {
                 const state = try Return.parse(p);
-                switch (state) {
-                    .ok => return r.Ok(@This(){ .ret = state.ok }),
-                    .err => return r.Err(state.err),
-                }
+                return @This(){ .ret = state };
             },
             .let => {
                 const state = try Variable.parse(p);
-                switch (state) {
-                    .ok => return r.Ok(@This(){ .let = state.ok }),
-                    .err => return r.Err(state.err),
-                }
+                return @This(){ .let = state };
             },
             .EOF => {
-                const unexpected = Parser.expect(t, .closeBrace);
-                return r.Err(unexpected.?);
+                _ = try p.expect(t, &[_]Lexer.TokenType{.closeBrace});
+                return error.UnexpectedToken;
             },
             else => {
-                const unexpected = Parser.expect(t, .any);
-                return r.Err(unexpected.?);
+                const temp = p.temp.addManyAsArray(3) catch unreachable;
+                temp[0] = .ret;
+                temp[1] = .let;
+                _ = try p.expect(t, &[_]Lexer.TokenType{ .ret, .let });
+                return error.UnexpectedToken;
             },
         }
     }
 
-    pub fn toIR(self: @This(), alloc: std.mem.Allocator, prog: *IR.Program, m: tb.Module) error{OutOfMemory}!?IR.Instruction {
+    pub fn toIR(self: @This(), alloc: std.mem.Allocator, prog: *IR.Program, m: tb.Module) std.mem.Allocator.Error!?IR.Instruction {
         switch (self) {
             .ret => |r| return IR.Instruction{ .ret = r.toIR() },
             .let => |v| return IR.Instruction{ .variable = v.toIR() },
@@ -58,7 +54,7 @@ pub const Statement = union(enum) {
         return null;
     }
 
-    pub fn toString(self: @This(), cont: *std.ArrayList(u8), d: u64) error{OutOfMemory}!void {
+    pub fn toString(self: @This(), cont: *std.ArrayList(u8), d: u64) std.mem.Allocator.Error!void {
         switch (self) {
             .ret => |ret| try ret.toString(cont, d),
             .let => |let| try let.toString(cont, d),

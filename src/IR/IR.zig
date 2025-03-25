@@ -32,7 +32,7 @@ pub fn deinit(self: *@This()) void {
     self.ir.deinit();
 }
 
-pub fn toIR(self: *@This(), m: tb.Module) error{OutOfMemory}!void {
+pub fn toIR(self: *@This(), m: tb.Module) std.mem.Allocator.Error!void {
     var it = self.program.funcs.iterator();
     while (it.next()) |c| {
         const func = c.value_ptr.*;
@@ -42,7 +42,7 @@ pub fn toIR(self: *@This(), m: tb.Module) error{OutOfMemory}!void {
     }
 }
 
-pub fn codeGen(self: *@This(), m: tb.Module) error{OutOfMemory}!tb.Function {
+pub fn codeGen(self: *@This(), m: tb.Module) std.mem.Allocator.Error!tb.Function {
     const ws = tb.Worklist.alloc();
     defer ws.free();
 
@@ -79,7 +79,7 @@ pub fn codeGen(self: *@This(), m: tb.Module) error{OutOfMemory}!tb.Function {
     return startF;
 }
 
-pub fn toString(self: *@This(), alloc: std.mem.Allocator) error{OutOfMemory}!std.ArrayList(u8) {
+pub fn toString(self: *@This(), alloc: std.mem.Allocator) std.mem.Allocator.Error!std.ArrayList(u8) {
     var cont = std.ArrayList(u8).init(alloc);
 
     try self.ir.toString(&cont);

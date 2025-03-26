@@ -3,6 +3,7 @@ const std = @import("std");
 const Lexer = @import("./Lexer/Lexer.zig");
 
 pub var silence = false;
+pub var source: [:0]const u8 = .{};
 
 pub const logLocation = struct {
     pub fn info(location: Lexer.Location, comptime format: []const u8, args: anytype) void {
@@ -19,31 +20,9 @@ pub const logLocation = struct {
     }
 
     fn printPlace(location: Lexer.Location, writer: std.io.BufferedWriter(4096, std.fs.File.Writer).Writer) void {
-        var beg = location.i;
-
-        while (beg > 1 and location.content[beg - 1] != '\n') : (beg -= 1) {}
-        if (beg > 0)
-            beg -= 1;
-
-        var end = location.i;
-
-        while (end < location.content.len and location.content[end + 1] != '\n') : (end += 1) {}
-        end += 1;
-
-        var pointer = std.BoundedArray(u8, 10 * 1024).init(0) catch unreachable;
-
-        for (0..location.col - 1) |_| {
-            pointer.append(' ') catch {
-                log.err("Line is larger than {} caracters", .{10 * 1024});
-                return;
-            };
-        }
-        pointer.append('^') catch {
-            log.err("Line is larger than {} caracters", .{10 * 1024});
-            return;
-        };
-
-        writer.print("{s}\n{s}\n", .{ location.content[beg..end], pointer.buffer }) catch return;
+        _ = location;
+        _ = writer;
+        unreachable;
     }
 
     fn l(comptime message_level: std.log.Level, location: Lexer.Location, comptime format: []const u8, args: anytype) void {

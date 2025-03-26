@@ -5,6 +5,7 @@ const Logger = @import("../Logger.zig");
 
 const Arguments = @import("./../ParseArgs.zig").Arguments;
 
+pub const PrettyLocation = @import("./PrettyLocation.zig");
 pub const Location = @import("./Location.zig");
 pub const Token = @import("./Token.zig");
 pub const TokenType = Token.TokenType;
@@ -22,104 +23,119 @@ const LexerCreationError = error{
 
 path: []const u8,
 absPath: []const u8,
-content: []const u8,
-prevLoc: Location = Location{ .row = 1, .col = 1, .i = 0, .path = "", .content = "" },
-currentLoc: Location = Location{ .row = 1, .col = 1, .i = 0, .path = "", .content = "" },
+content: [:0]const u8,
 index: usize = 0,
-peeked: usize = 0,
+peeked: ?Token = null,
 finished: bool = false,
 
 alloc: Allocator,
 
-pub const separatorIgnore = " \t\n\r";
-pub const separator = "(){};" ++ separatorIgnore;
-// 127 - 33 count of printable caracters
-// - (26 * 2) a-z A-Z
-// - 10 numbres
-// - 5 printable separator
-// _ should be possible to use as an identifier
-pub const symbols: [(127 - 33) - (26 * 2) - 10 - 5 - 1]u8 = blk: {
-    var result: [(127 - 33) - (26 * 2) - 10 - 5 - 1]u8 = undefined;
-    var index: usize = 0;
-
-    for (33..127) |i| {
-        const c: u8 = @intCast(i);
-        if (!std.ascii.isAlphanumeric(c) and !util.listContains(u8, separator, i) and i != '_') {
-            result[index] = c;
-            index += 1;
-        }
-    }
-
-    break :blk result;
+const Status = enum {
+    start,
+    identifier,
+    numberLiteral,
 };
 
-fn skipIgnore(self: *@This()) void {
-    while (self.index < self.content.len and util.listContains(u8, separatorIgnore, self.content[self.index])) {
-        if (self.content[self.index] == '\n') {
-            self.currentLoc.row += 1;
-            self.currentLoc.col = 0;
-        }
-        self.index += 1;
-        self.currentLoc.col += 1;
+pub fn advance(self: *@This()) Token {
+    if (self.finished) @panic("This function shouldnt be called if this has finished lexing");
+    var t = Token.init(undefined, .{ .start = self.index, .end = undefined });
+
+    state: switch (Status.start) {
+        .start => switch (self.content[self.index]) {
+            0 => {
+                t.tag = .EOF;
+                self.finished = true;
+            },
+            '\n', '\t', '\r', ' ' => {
+                self.index += 1;
+                t.loc.start = self.index;
+                continue :state .start;
+            },
+
+            'a'...'z', 'A'...'Z', '_' => {
+                t.tag = .iden;
+                continue :state .identifier;
+            },
+            '(' => {
+                self.index += 1;
+                t.tag = .openParen;
+            },
+            ')' => {
+                self.index += 1;
+                t.tag = .closeParen;
+            },
+            '{' => {
+                self.index += 1;
+                t.tag = .openBrace;
+            },
+            '}' => {
+                self.index += 1;
+                t.tag = .closeBrace;
+            },
+            '0'...'1' => {
+                t.tag = .numberLiteral;
+                continue :state .numberLiteral;
+            },
+            ';' => {
+                self.index += 1;
+                t.tag = .semicolon;
+            },
+            else => {
+                Logger.log.info("Found {s}", .{self.content[self.index .. self.index + 1]});
+                unreachable;
+            },
+        },
+        .identifier => {
+            self.index += 1;
+            switch (self.content[self.index]) {
+                'a'...'z', 'A'...'Z', '_', '0'...'9' => continue :state .identifier,
+                else => {
+                    if (Token.getKeyWord(self.content[t.loc.start..self.index])) |tag| {
+                        t.tag = tag;
+                    }
+                },
+            }
+        },
+        .numberLiteral => {
+            self.index += 1;
+            switch (self.content[self.index]) {
+                '0'...'9' => continue :state .numberLiteral,
+                else => {},
+            }
+        },
     }
-    self.currentLoc.i = self.index;
-}
 
-pub fn advance(self: *@This()) ?usize {
-    if (self.content.len == 0 or self.index >= self.content.len - 1) return null;
-    if (self.index < self.peeked) return self.peeked;
+    t.loc.end = self.index;
 
-    self.skipIgnore();
-    self.prevLoc = self.currentLoc;
-    var i = self.index;
-
-    while (i < self.content.len and !util.listContains(u8, separator, self.content[i]) and !util.listContains(u8, &symbols, self.content[i])) {
-        i += 1;
-        self.currentLoc.col += 1;
-    }
-
-    if (self.index == i) {
-        i += 1;
-        self.currentLoc.col += 1;
-    }
-    self.currentLoc.i = self.index;
-
-    return i;
+    return t;
 }
 
 pub fn peek(self: *@This()) Token {
-    self.peeked = self.advance() orelse {
-        if (self.finished) unreachable;
-        return Token.init(self.path, self.absPath, "", self.currentLoc);
-    };
-
-    return Token.init(self.path, self.absPath, self.content[self.index..self.peeked], self.prevLoc);
+    if (self.peeked) |t| return t;
+    self.peeked = self.advance();
 }
 
 pub fn pop(self: *@This()) Token {
-    const i = self.advance() orelse {
-        if (self.finished) unreachable;
-        self.finished = true;
-        return Token.init(self.path, self.absPath, "", self.currentLoc);
-    };
+    if (self.peeked) |t| {
+        self.peeked = null;
+        return t;
+    }
 
-    const t = Token.init(self.path, self.absPath, self.content[self.index..i], self.prevLoc);
-
-    self.index = i;
-    self.prevLoc = self.currentLoc;
-
-    return t;
+    return self.advance();
 }
 
 pub fn toString(self: *@This(), alloc: std.mem.Allocator) std.mem.Allocator.Error!std.ArrayList(u8) {
     var cont = std.ArrayList(u8).init(alloc);
 
+    try cont.appendSlice(self.absPath);
+    try cont.appendSlice(":\n");
+
     var t = self.pop();
     while (!self.finished) : (t = self.pop()) {
-        try t.toString(alloc, &cont);
+        try t.toString(alloc, &cont, self.path, self.content);
     }
 
-    try t.toString(alloc, &cont);
+    try t.toString(alloc, &cont, self.path, self.content);
 
     return cont;
 }
@@ -129,20 +145,15 @@ pub fn init(alloc: Allocator, path: []const u8) LexerCreationError!@This() {
     const f = std.fs.openFileAbsolute(abspath, .{ .mode = .read_only }) catch return error.couldNotOpenFile;
     defer f.close();
     const file_size = f.getEndPos() catch return error.couldNotGetFileSize;
-    const max_bytes: usize = @intCast(file_size);
-    const c = f.readToEndAlloc(alloc, max_bytes) catch return error.couldNotReadFile;
+    const max_bytes: usize = @intCast(file_size + 1);
+    const c = f.readToEndAllocOptions(alloc, max_bytes, max_bytes, 1, 0) catch return error.couldNotReadFile;
 
-    var l = @This(){
+    const l = @This(){
         .content = c,
         .absPath = abspath,
         .path = path,
         .alloc = alloc,
     };
-
-    l.prevLoc.path = path;
-    l.prevLoc.content = c;
-    l.currentLoc.path = path;
-    l.currentLoc.content = c;
 
     return l;
 }

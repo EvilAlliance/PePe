@@ -251,10 +251,10 @@ pub fn main() u8 {
         defer ws.free();
 
         var funcIterator = ir.ir.funcs.valueIterator();
-        {
-            var feature: tb.FeatureSet = undefined;
-            _ = startF.codeGen(tb.CodegenRA.ROGERS, ws, &a, &feature, false);
-        }
+        // {
+        //     var feature: tb.FeatureSet = undefined;
+        //     _ = startF.codeGen(tb.CodegenRA.ROGERS, ws, &a, &feature, false);
+        // }
 
         while (funcIterator.next()) |func| {
             var feature: tb.FeatureSet = undefined;

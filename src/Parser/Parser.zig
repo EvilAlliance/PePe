@@ -3,7 +3,7 @@ const Logger = @import("../Logger.zig");
 const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
 
-const util = @import("../Util.zig");
+const Util = @import("../Util.zig");
 const gen = @import("../General.zig");
 const tb = @import("../libs/tb/tb.zig");
 const tbHelper = @import("../TBHelper.zig");
@@ -18,6 +18,7 @@ pub const Node = @import("Node.zig");
 pub const UnexpectedToken = @import("UnexpectedToken.zig");
 pub const Program = std.StringHashMap(usize);
 pub const NodeList = std.ArrayList(Node);
+pub const Expression = @import("Expression.zig");
 
 l: *Lexer,
 alloc: Allocator,
@@ -27,6 +28,8 @@ nodeList: NodeList,
 temp: NodeList,
 
 errors: std.ArrayList(UnexpectedToken),
+
+depth: usize = 0,
 
 pub fn init(alloc: Allocator, l: *Lexer) @This() {
     return @This(){
@@ -55,7 +58,7 @@ pub fn deinit(self: *@This()) void {
 
 pub fn expect(self: *@This(), token: Lexer.Token, t: []const Lexer.TokenType) std.mem.Allocator.Error!bool {
     const ex = try self.alloc.dupe(Lexer.TokenType, t);
-    const is = util.listContains(Lexer.TokenType, ex, token.tag);
+    const is = Util.listContains(Lexer.TokenType, ex, token.tag);
     if (!is)
         try self.errors.append(UnexpectedToken{
             .expected = ex,
@@ -65,11 +68,6 @@ pub fn expect(self: *@This(), token: Lexer.Token, t: []const Lexer.TokenType) st
         });
 
     return is;
-}
-
-pub fn parse(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!void {
-    try self.parseRoot();
-    if (self.errors.items.len > 0) return error.UnexpectedToken;
 }
 
 fn peek(self: *@This()) Lexer.Token {
@@ -85,25 +83,35 @@ fn pop(self: *@This()) Lexer.Token {
     return self.l.pop();
 }
 
-pub fn parseRoot(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!void {
+pub fn parse(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!void {
+    try self.parseRoot();
+    if (self.errors.items.len > 0) return error.UnexpectedToken;
+}
+
+fn parseRoot(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!void {
     const top = self.temp.items.len;
     defer self.temp.shrinkRetainingCapacity(top);
 
     try self.temp.insert(0, .{ .tag = .root, .token = null, .data = .{ 1, 0 } });
 
     var t = self.peek();
+    if (!try self.expect(t, &[_]Lexer.TokenType{.func})) return error.UnexpectedToken;
     while (t.tag != .EOF) : (t = self.l.peek()) {
+        if (!try self.expect(t, &.{ .func, .let })) return error.UnexpectedToken;
+
         switch (t.tag) {
             .func => try self.parseFuncDelc(),
-            .let => unreachable,
-            else => {
-                if (!try self.expect(t, &.{ .func, .let })) return error.UnexpectedToken;
-            },
+            // .let => unreachable,
+            else => unreachable,
         }
     }
+
+    self.temp.items[0].data[1] = self.temp.items.len;
+
+    try self.nodeList.appendSlice(self.temp.items);
 }
 
-pub fn parseFuncDelc(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!void {
+fn parseFuncDelc(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!void {
     _ = self.popIf(.func) orelse unreachable;
 
     if (!try self.expect(self.peek(), &.{.iden})) return error.UnexpectedToken;
@@ -117,15 +125,21 @@ pub fn parseFuncDelc(self: *@This()) (std.mem.Allocator.Error || error{Unexpecte
     });
 
     if (!try self.expect(self.peek(), &.{.openParen})) return error.UnexpectedToken;
-    self.temp.items[nodeIndex].data[0] = try self.parseFuncProto();
+    {
+        const p = try self.parseFuncProto();
+        self.temp.items[nodeIndex].data[0] = p;
+    }
 
-    if (self.peek().tag == .openBrace) unreachable;
+    if (self.peek().tag != .openBrace) unreachable;
     // TODO: add Parsing for Basic1, instead of a scope, make a only one statement
 
-    self.temp.items[nodeIndex].data[1] = try self.parseFuncBody();
+    {
+        const p = try self.parseFuncBody();
+        self.temp.items[nodeIndex].data[1] = p;
+    }
 }
 
-pub fn parseFuncProto(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!usize {
+fn parseFuncProto(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!usize {
     const nodeIndex = self.temp.items.len;
     try self.temp.append(.{
         .token = null,
@@ -139,12 +153,15 @@ pub fn parseFuncProto(self: *@This()) (std.mem.Allocator.Error || error{Unexpect
     if (!try self.expect(self.peek(), &.{.closeParen})) return error.UnexpectedToken;
     _ = self.pop();
 
-    self.temp.items[nodeIndex].data[1] = try self.parseType();
+    {
+        const p = try self.parseType();
+        self.temp.items[nodeIndex].data[1] = p;
+    }
 
     return nodeIndex;
 }
 
-pub fn parseType(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!usize {
+fn parseType(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!usize {
     if (!try self.expect(self.peek(), &.{.iden})) return error.UnexpectedToken;
     const mainToken = self.pop();
 
@@ -158,8 +175,11 @@ pub fn parseType(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedTok
     return nodeIndex;
 }
 
-pub fn parseFuncBody(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!usize {
+fn parseFuncBody(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!usize {
+    _ = self.popIf(.openBrace) orelse unreachable;
+
     const nodeIndex = self.temp.items.len;
+
     try self.temp.append(.{
         .token = null,
         .tag = .body,
@@ -174,23 +194,171 @@ pub fn parseFuncBody(self: *@This()) (std.mem.Allocator.Error || error{Unexpecte
         };
     }
 
-    return self.temp.items.len;
+    if (!try self.expect(self.peek(), &.{.closeBrace})) return error.UnexpectedToken;
+    _ = self.pop();
+
+    self.temp.items[nodeIndex].data[1] = self.temp.items.len;
+
+    return nodeIndex;
 }
 
-pub fn parseStatement(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!void {
+fn parseStatement(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!void {
+    const nodeIndex = self.temp.items.len;
+    if (!try self.expect(self.peek(), &.{.ret})) return error.UnexpectedToken;
+
     switch (self.peek().tag) {
-        .ret => unreachable,
-        .let => unreachable,
-        else => {
-            _ = try self.expect(self.peek(), &.{ .ret, .let });
-            return error.UnexpectedToken;
-        },
+        .ret => try self.parseReturn(),
+        // .let => unreachable,
+        else => unreachable,
     }
+
+    if (!try self.expect(self.peek(), &.{.semicolon})) return error.UnexpectedToken;
+
+    self.temp.items[nodeIndex].data[1] = self.temp.items.len;
+    return;
+}
+
+fn parseReturn(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!void {
+    const ret = self.popIf(.ret) orelse unreachable;
+
+    const nodeIndex = self.temp.items.len;
+    try self.temp.append(.{
+        .tag = .ret,
+        .token = ret,
+        .data = .{ 0, 0 },
+    });
+
+    std.debug.assert(self.depth == 0);
+    const exp = try self.parseExpression();
+    std.debug.assert(self.depth == 0);
+
+    self.temp.items[nodeIndex].data[0] = exp;
+
+    if (!try self.expect(self.peek(), &.{.semicolon})) return error.UnexpectedToken;
+    _ = self.pop();
+
+    return;
+}
+
+fn parseExpression(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!usize {
+    const term = try self.parseTerm();
+
+    if (self.peek().tag != .semicolon) unreachable;
+
+    return term;
+}
+
+fn parseTerm(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!usize {
+    const nextToken = self.peek();
+
+    if (!try self.expect(nextToken, &[_]Lexer.TokenType{.numberLiteral})) return error.UnexpectedToken;
+
+    if (nextToken.tag == .numberLiteral) {
+        const nodeIndex = self.temp.items.len;
+
+        try self.temp.append(.{
+            .tag = .lit,
+            .token = self.pop(),
+            .data = .{ 0, 0 },
+        });
+
+        return nodeIndex;
+    }
+
     unreachable;
 }
 
 pub fn toString(self: *@This(), alloc: std.mem.Allocator) std.mem.Allocator.Error!std.ArrayList(u8) {
-    _ = self;
-    _ = alloc;
-    unreachable;
+    var cont = std.ArrayList(u8).init(alloc);
+    if (self.nodeList.items.len == 0) return cont;
+
+    const root = self.nodeList.items[0];
+
+    var i = root.data[0];
+    const end = root.data[1];
+    while (i < end) : (i += 1) {
+        const node = self.nodeList.items[i];
+        switch (node.tag) {
+            .funcDecl => {
+                try cont.appendSlice("fn ");
+
+                try cont.appendSlice(node.token.?.getText(self.l.content));
+
+                try self.toStringFuncProto(&cont, 0, node.data[0]);
+
+                const body = self.nodeList.items[node.data[1]];
+                switch (body.tag) {
+                    .body => try self.toStringBody(&cont, 0, node.data[1]),
+                    else => unreachable,
+                }
+                i = body.data[1];
+            },
+            else => unreachable,
+        }
+    }
+
+    return cont;
+}
+
+fn toStringFuncProto(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) std.mem.Allocator.Error!void {
+    std.debug.assert(self.nodeList.items[i].tag == .funcProto);
+    std.debug.assert(self.nodeList.items[i].data[0] == 0);
+
+    // TODO : Put arguments
+    try cont.appendSlice("() ");
+
+    try self.toStringType(cont, d, self.nodeList.items[i].data[1]);
+}
+
+fn toStringType(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) std.mem.Allocator.Error!void {
+    _ = d;
+    try cont.appendSlice(self.nodeList.items[i].token.?.getText(self.l.content));
+    try cont.append(' ');
+}
+
+fn toStringBody(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) std.mem.Allocator.Error!void {
+    const body = self.nodeList.items[i];
+    std.debug.assert(body.tag == .body);
+
+    try cont.appendSlice("{ \n");
+
+    var j = body.data[0];
+    const end = body.data[1];
+
+    while (j < end) : (j += 1) {
+        const node = self.nodeList.items[j];
+
+        try self.toStringStatement(cont, d + 4, j);
+
+        j = node.data[1];
+    }
+
+    try cont.appendSlice("} \n");
+}
+
+fn toStringStatement(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) std.mem.Allocator.Error!void {
+    for (0..d) |_| {
+        try cont.append(' ');
+    }
+
+    const stmt = self.nodeList.items[i];
+
+    switch (stmt.tag) {
+        .ret => {
+            try cont.appendSlice("return ");
+            try self.toStringExpression(cont, d, stmt.data[0]);
+        },
+        else => unreachable,
+    }
+
+    try cont.appendSlice(";\n");
+}
+
+fn toStringExpression(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) std.mem.Allocator.Error!void {
+    _ = d;
+    const node = self.nodeList.items[i];
+    std.debug.assert(node.tag == .lit);
+
+    try cont.append(' ');
+    try cont.appendSlice(node.token.?.getText(self.l.content));
 }

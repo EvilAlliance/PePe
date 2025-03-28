@@ -28,6 +28,9 @@ pub const TokenType = enum {
     numberLiteral,
     iden,
 
+    //Symbols
+    plus,
+
     EOF,
 
     pub fn toSymbol(self: @This()) ?[]const u8 {
@@ -47,6 +50,8 @@ pub const TokenType = enum {
 
             .numberLiteral => null,
             .iden => null,
+
+            .plus => "+",
 
             .EOF => "EOF",
         };

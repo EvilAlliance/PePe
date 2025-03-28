@@ -13,10 +13,10 @@ const Commnad = @import("./Util/Command.zig");
 const getArguments = ParseArguments.getArguments;
 const Arguments = ParseArguments.Arguments;
 const lex = Lexer.lex;
-// const Parser = @import("./Parser/Parser.zig");
-// const IR = @import("IR/IR.zig");
-//
-// const tb = @import("./libs/tb/tb.zig");
+const Parser = @import("./Parser/Parser.zig");
+const IR = @import("IR/IR.zig");
+
+const tb = @import("./libs/tb/tb.zig");
 
 fn getName(absPath: []const u8, extName: []const u8) []u8 {
     var buf: [5 * 1024]u8 = undefined;
@@ -84,12 +84,10 @@ fn writeAll(c: []const u8, arg: Arguments, name: []u8) void {
 // }
 
 pub fn main() u8 {
-    // var timer = std.time.Timer.start() catch unreachable;
+    var timer = std.time.Timer.start() catch unreachable;
 
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
-
-    const alloc = arena.allocator();
+    var generalPurpose: std.heap.GeneralPurposeAllocator(.{}) = .init;
+    const gpa = generalPurpose.allocator();
 
     const arguments = getArguments() orelse {
         usage();
@@ -98,22 +96,20 @@ pub fn main() u8 {
 
     Logger.silence = arguments.silence;
 
-    _ = arena.reset(std.heap.ArenaAllocator.ResetMode.retain_capacity);
-
     if (arguments.run and arguments.stdout) {
         Logger.log.warn("Subcommand run wont print anything", .{});
     }
 
     if (arguments.bench)
         Logger.log.info("Lexing and Parsing", .{});
-    var lexer = lex(alloc, arguments) orelse {
+    var lexer = lex(gpa, arguments) orelse {
         usage();
         return 1;
     };
     defer lexer.deinit();
 
     if (arguments.lex) {
-        const lexContent = lexer.toString(alloc) catch {
+        const lexContent = lexer.toString(gpa) catch {
             Logger.log.err("Out of memory", .{});
             return 1;
         };
@@ -125,40 +121,40 @@ pub fn main() u8 {
         return 0;
     }
 
+    var parser = Parser.init(gpa, &lexer);
+    defer parser.deinit();
+    var unexpectedToken = false;
+    parser.parse() catch |err| switch (err) {
+        error.OutOfMemory => {
+            Logger.log.err("Out of memory", .{});
+            return 1;
+        },
+        error.UnexpectedToken => {
+            unexpectedToken = true;
+            for (parser.errors.items) |e| {
+                e.display();
+            }
+        },
+    };
+
+    if (arguments.bench)
+        Logger.log.info("Finished in {}", .{std.fmt.fmtDuration(timer.lap())});
+
+    if (arguments.parse) {
+        const cont = parser.toString(gpa) catch {
+            Logger.log.err("Out of memory", .{});
+            return 1;
+        };
+        defer cont.deinit();
+
+        const name = getName(lexer.absPath, "parse");
+        writeAll(cont.items, arguments, name);
+
+        return 0;
+    }
+
     return 0;
 
-    // var parser = Parser.init(alloc, &lexer);
-    // defer parser.deinit();
-    // var unexpectedToken = false;
-    // parser.parse() catch |err| switch (err) {
-    //     error.OutOfMemory => {
-    //         Logger.log.err("Out of memory", .{});
-    //         return 1;
-    //     },
-    //     error.UnexpectedToken => {
-    //         unexpectedToken = true;
-    //         for (parser.errors.items) |e| {
-    //             e.display();
-    //         }
-    //     },
-    // };
-    //
-    // if (arguments.bench)
-    //     Logger.log.info("Finished in {}", .{std.fmt.fmtDuration(timer.lap())});
-    //
-    // if (arguments.parse) {
-    //     const cont = parser.toString(alloc) catch {
-    //         Logger.log.err("Out of memory", .{});
-    //         return 1;
-    //     };
-    //     defer cont.deinit();
-    //
-    //     const name = getName(lexer.absPath, "parse");
-    //     writeAll(cont.items, arguments, name);
-    //
-    //     return 0;
-    // }
-    //
     // if (arguments.bench)
     //     Logger.log.info("Type Checking", .{});
     //

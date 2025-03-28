@@ -8,7 +8,6 @@ const Location = Lexer.Location;
 
 expected: []TokenType,
 found: TokenType,
-path: []const u8,
 loc: Location,
 alloc: std.mem.Allocator,
 

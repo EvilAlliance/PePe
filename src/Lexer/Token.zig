@@ -79,17 +79,15 @@ pub fn getText(self: @This(), source: []const u8) []const u8 {
 }
 
 pub fn toString(self: @This(), alloc: Allocator, cont: *std.ArrayList(u8), path: []const u8, source: [:0]const u8) std.mem.Allocator.Error!void {
-    const prettyLoc = self.loc.getPrettyLocation(path, source);
-
     try cont.appendSlice(path);
     try cont.append(':');
 
-    const row = try std.fmt.allocPrint(alloc, "{}", .{prettyLoc.row});
+    const row = try std.fmt.allocPrint(alloc, "{}", .{self.loc.row});
 
     try cont.appendSlice(row);
     try cont.append(':');
 
-    const col = try std.fmt.allocPrint(alloc, "{}", .{prettyLoc.col});
+    const col = try std.fmt.allocPrint(alloc, "{}", .{self.loc.col});
 
     try cont.appendSlice(col);
     try cont.append(' ');

@@ -5,7 +5,6 @@ const Logger = @import("../Logger.zig");
 
 const Arguments = @import("./../ParseArgs.zig").Arguments;
 
-pub const PrettyLocation = @import("./PrettyLocation.zig");
 pub const Location = @import("./Location.zig");
 pub const Token = @import("./Token.zig");
 pub const TokenType = Token.TokenType;
@@ -25,6 +24,7 @@ path: []const u8,
 absPath: []const u8,
 content: [:0]const u8,
 index: usize = 0,
+loc: Location,
 peeked: ?Token = null,
 finished: bool = false,
 
@@ -36,9 +36,16 @@ const Status = enum {
     numberLiteral,
 };
 
-pub fn advance(self: *@This()) Token {
+fn advanceIndex(self: *@This()) void {
+    if (self.content.len == 0 or self.index >= self.content.len) unreachable;
+
+    self.index += 1;
+    self.loc.col += 1;
+}
+
+fn advance(self: *@This()) Token {
     if (self.finished) @panic("This function shouldnt be called if this has finished lexing");
-    var t = Token.init(undefined, .{ .start = self.index, .end = undefined });
+    var t = Token.init(undefined, self.loc.shallowCopy(self.index, undefined));
 
     state: switch (Status.start) {
         .start => switch (self.content[self.index]) {
@@ -46,9 +53,22 @@ pub fn advance(self: *@This()) Token {
                 t.tag = .EOF;
                 self.finished = true;
             },
-            '\n', '\t', '\r', ' ' => {
-                self.index += 1;
+            '\n' => {
+                self.advanceIndex();
+                self.loc.col = 1;
+                self.loc.row += 1;
+
                 t.loc.start = self.index;
+                t.loc.col = self.loc.col;
+                t.loc.row = self.loc.row;
+                continue :state .start;
+            },
+            '\t', '\r', ' ' => {
+                self.advanceIndex();
+
+                t.loc.start = self.index;
+                t.loc.col = self.loc.col;
+                t.loc.row = self.loc.row;
                 continue :state .start;
             },
 
@@ -57,19 +77,19 @@ pub fn advance(self: *@This()) Token {
                 continue :state .identifier;
             },
             '(' => {
-                self.index += 1;
+                self.advanceIndex();
                 t.tag = .openParen;
             },
             ')' => {
-                self.index += 1;
+                self.advanceIndex();
                 t.tag = .closeParen;
             },
             '{' => {
-                self.index += 1;
+                self.advanceIndex();
                 t.tag = .openBrace;
             },
             '}' => {
-                self.index += 1;
+                self.advanceIndex();
                 t.tag = .closeBrace;
             },
             '0'...'1' => {
@@ -77,7 +97,7 @@ pub fn advance(self: *@This()) Token {
                 continue :state .numberLiteral;
             },
             ';' => {
-                self.index += 1;
+                self.advanceIndex();
                 t.tag = .semicolon;
             },
             else => {
@@ -86,7 +106,7 @@ pub fn advance(self: *@This()) Token {
             },
         },
         .identifier => {
-            self.index += 1;
+            self.advanceIndex();
             switch (self.content[self.index]) {
                 'a'...'z', 'A'...'Z', '_', '0'...'9' => continue :state .identifier,
                 else => {
@@ -97,7 +117,7 @@ pub fn advance(self: *@This()) Token {
             }
         },
         .numberLiteral => {
-            self.index += 1;
+            self.advanceIndex();
             switch (self.content[self.index]) {
                 '0'...'9' => continue :state .numberLiteral,
                 else => {},
@@ -113,6 +133,8 @@ pub fn advance(self: *@This()) Token {
 pub fn peek(self: *@This()) Token {
     if (self.peeked) |t| return t;
     self.peeked = self.advance();
+
+    return self.peeked.?;
 }
 
 pub fn pop(self: *@This()) Token {
@@ -153,6 +175,7 @@ pub fn init(alloc: Allocator, path: []const u8) LexerCreationError!@This() {
         .absPath = abspath,
         .path = path,
         .alloc = alloc,
+        .loc = Location.init(path, c),
     };
 
     return l;

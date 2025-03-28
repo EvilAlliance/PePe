@@ -241,11 +241,28 @@ fn parseReturn(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken
 }
 
 fn parseExpression(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!usize {
-    const term = try self.parseTerm();
+    var nextToken = self.peek();
+    if (nextToken.tag == .semicolon) @panic("Void return is not implemented");
 
-    if (self.peek().tag != .semicolon) unreachable;
+    var expr = try self.parseTerm();
+    nextToken = self.peek();
 
-    return term;
+    while (nextToken.tag != .semicolon and nextToken.tag != .closeParen) : (nextToken = self.peek()) {
+        const op = self.pop();
+        if (!try self.expect(op, &.{.plus})) return error.UnexpectedToken;
+
+        const right = try self.parseTerm();
+
+        try self.temp.append(.{
+            .tag = .plus,
+            .token = op,
+            .data = .{ expr, right },
+        });
+
+        expr = self.temp.items.len - 1;
+    }
+
+    return expr;
 }
 
 fn parseTerm(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!usize {
@@ -355,10 +372,22 @@ fn toStringStatement(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) 
 }
 
 fn toStringExpression(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) std.mem.Allocator.Error!void {
-    _ = d;
     const node = self.nodeList.items[i];
-    std.debug.assert(node.tag == .lit);
+    switch (node.tag) {
+        .plus => {
+            const leftIndex = node.data[0];
+            try self.toStringExpression(cont, d, leftIndex);
 
-    try cont.append(' ');
-    try cont.appendSlice(node.token.?.getText(self.l.content));
+            try cont.append(' ');
+            try cont.appendSlice(node.token.?.tag.toSymbol().?);
+
+            const rightIndex = node.data[1];
+            try self.toStringExpression(cont, d, rightIndex);
+        },
+        .lit => {
+            try cont.append(' ');
+            try cont.appendSlice(node.token.?.getText(self.l.content));
+        },
+        else => unreachable,
+    }
 }

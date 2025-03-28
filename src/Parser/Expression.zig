@@ -5,7 +5,6 @@ const Parser = @import("Parser.zig");
 const UnexpectedToken = Parser.UnexpectedToken;
 
 const Lexer = @import("../Lexer/Lexer.zig");
-const Token = Lexer.Token;
 
 const Util = @import("../Util.zig");
 
@@ -16,7 +15,13 @@ const tb = @import("../libs/tb/tb.zig");
 const tbHelper = @import("../TBHelper.zig");
 const getType = tbHelper.getType;
 
-pub const Operand = std.StaticStringMap(u8).initComptime(.{
+pub fn operandPresedence(t: Lexer.TokenType) u8 {
+    return switch (t) {
+        .plus => 0,
+        else => unreachable,
+    };
+}
+pub const Operand = std.AutoHashMap(Lexer.TokenType, u8).initComptime(.{
     .{ "^", 0 },
     .{ "%", 1 },
     .{ "*", 1 },
@@ -124,23 +129,23 @@ pub const Expression = union(enum) {
     var depth: u64 = 0;
 
     bin: struct {
-        op: Token,
+        op: Lexer.Token,
         left: *Expression,
         right: *Expression,
     },
     una: struct {
-        op: Token,
+        op: Lexer.Token,
         e: *Expression,
     },
-    leaf: Token,
+    leaf: Lexer.Token,
     paren: *Expression,
-    variable: Token,
+    variable: Lexer.Token,
 
-    fn makeLeaf(alloc: std.mem.Allocator, t: Token) std.mem.Allocator.Error!*@This() {
+    fn makeLeaf(alloc: std.mem.Allocator, t: Lexer.Token) std.mem.Allocator.Error!*@This() {
         return Util.dupe(alloc, @This(){ .leaf = t });
     }
 
-    fn makeVar(alloc: std.mem.Allocator, t: Token) std.mem.Allocator.Error!*@This() {
+    fn makeVar(alloc: std.mem.Allocator, t: Lexer.Token) std.mem.Allocator.Error!*@This() {
         return Util.dupe(alloc, @This(){ .variable = t });
     }
 
@@ -148,7 +153,7 @@ pub const Expression = union(enum) {
         return Util.dupe(alloc, @This(){ .paren = t });
     }
 
-    fn makeUnary(alloc: std.mem.Allocator, op: Token, expr: *@This()) std.mem.Allocator.Error!*@This() {
+    fn makeUnary(alloc: std.mem.Allocator, op: Lexer.Token, expr: *@This()) std.mem.Allocator.Error!*@This() {
         return Util.dupe(
             alloc,
             @This(){
@@ -160,7 +165,7 @@ pub const Expression = union(enum) {
         );
     }
 
-    fn makeBinary(alloc: std.mem.Allocator, op: Token, left: *@This(), right: *@This()) std.mem.Allocator.Error!*@This() {
+    fn makeBinary(alloc: std.mem.Allocator, op: Lexer.Token, left: *@This(), right: *@This()) std.mem.Allocator.Error!*@This() {
         switch (left.*) {
             else => {
                 return Util.dupe(

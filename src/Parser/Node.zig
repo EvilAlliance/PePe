@@ -13,7 +13,9 @@ const Tag = enum {
 
     //statements
     ret,
-    expr,
+
+    //expresion
+    plus,
 
     lit,
 };

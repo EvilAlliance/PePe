@@ -130,11 +130,11 @@ fn parseFuncDelc(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedTok
         self.temp.items[nodeIndex].data[0] = p;
     }
 
-    if (self.peek().tag != .openBrace) unreachable;
-    // TODO: add Parsing for Basic1, instead of a scope, make a only one statement
-
-    {
-        const p = try self.parseFuncBody();
+    if (self.peek().tag != .openBrace) {
+        self.temp.items[nodeIndex].data[1] = self.temp.items.len;
+        try self.parseStatement();
+    } else {
+        const p = try self.parseBody();
         self.temp.items[nodeIndex].data[1] = p;
     }
 }
@@ -175,7 +175,7 @@ fn parseType(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})
     return nodeIndex;
 }
 
-fn parseFuncBody(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!usize {
+fn parseBody(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!usize {
     _ = self.popIf(.openBrace) orelse unreachable;
 
     const nodeIndex = self.temp.items.len;
@@ -213,6 +213,7 @@ fn parseStatement(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedTo
     }
 
     if (!try self.expect(self.peek(), &.{.semicolon})) return error.UnexpectedToken;
+    _ = self.pop();
 
     self.temp.items[nodeIndex].data[1] = self.temp.items.len;
     return;
@@ -235,7 +236,6 @@ fn parseReturn(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken
     self.temp.items[nodeIndex].data[0] = exp;
 
     if (!try self.expect(self.peek(), &.{.semicolon})) return error.UnexpectedToken;
-    _ = self.pop();
 
     return;
 }
@@ -289,7 +289,7 @@ pub fn toString(self: *@This(), alloc: std.mem.Allocator) std.mem.Allocator.Erro
                 const body = self.nodeList.items[node.data[1]];
                 switch (body.tag) {
                     .body => try self.toStringBody(&cont, 0, node.data[1]),
-                    else => unreachable,
+                    else => try self.toStringStatement(&cont, 0, node.data[1]),
                 }
                 i = body.data[1];
             },

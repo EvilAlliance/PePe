@@ -20,9 +20,31 @@ pub const logLocation = struct {
     }
 
     fn printPlace(location: Lexer.Location, writer: std.io.BufferedWriter(4096, std.fs.File.Writer).Writer) void {
-        _ = location;
-        _ = writer;
-        unreachable;
+        var beg = location.start;
+
+        while (beg > 1 and location.content[beg - 1] != '\n') : (beg -= 1) {}
+        if (beg > 0)
+            beg -= 1;
+
+        var end = location.start;
+
+        while (end < location.content.len and location.content[end + 1] != '\n') : (end += 1) {}
+        end += 1;
+
+        var pointer = std.BoundedArray(u8, 10 * 1024).init(0) catch unreachable;
+
+        for (0..location.col - 1) |_| {
+            pointer.append(' ') catch {
+                log.err("Line is larger than {} caracters", .{10 * 1024});
+                return;
+            };
+        }
+        pointer.append('^') catch {
+            log.err("Line is larger than {} caracters", .{10 * 1024});
+            return;
+        };
+
+        writer.print("\t{s}\n\t{s}\n", .{ location.content[beg..end], pointer.buffer }) catch return;
     }
 
     fn l(comptime message_level: std.log.Level, location: Lexer.Location, comptime format: []const u8, args: anytype) void {
@@ -42,7 +64,7 @@ pub const logLocation = struct {
         defer std.debug.unlockStdErr();
         nosuspend {
             writer.print("{s}:{}:{} ", .{ location.path, location.row, location.col }) catch return;
-            writer.print(level_txt ++ ": " ++ format, args) catch return;
+            writer.print(level_txt ++ ": " ++ format ++ "\n", args) catch return;
             printPlace(location, writer);
             bw.flush() catch return;
         }

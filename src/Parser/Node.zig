@@ -3,6 +3,8 @@ const Lexer = @import("./../Lexer/Lexer.zig");
 pub const Tag = enum {
     root,
 
+    empty,
+
     funcDecl,
     funcProto,
     args,
@@ -11,8 +13,11 @@ pub const Tag = enum {
     // Body of anything or scope
     body,
 
-    //statements
+    // Right must be free for the index of next statement
     ret,
+    variable, // left variable prot
+    constant, // left variable Proto
+    VarProto, //left tyep, right expr
 
     //expresion
     addition,
@@ -22,6 +27,7 @@ pub const Tag = enum {
     power,
     parentesis,
     neg,
+    get,
 
     lit,
 };

@@ -98,6 +98,10 @@ fn advance(self: *@This()) Token {
                 t.tag = .numberLiteral;
                 continue :state .numberLiteral;
             },
+            ':' => {
+                self.advanceIndex();
+                t.tag = .colon;
+            },
             ';' => {
                 self.advanceIndex();
                 t.tag = .semicolon;
@@ -122,6 +126,10 @@ fn advance(self: *@This()) Token {
             '^' => {
                 self.advanceIndex();
                 t.tag = .caret;
+            },
+            '=' => {
+                self.advanceIndex();
+                t.tag = .equal;
             },
             else => {
                 Logger.log.info("Found {s}", .{self.content[self.index .. self.index + 1]});
@@ -176,6 +184,22 @@ pub fn peek(self: *@This()) Token {
     self.peeked = self.advance();
 
     return self.peeked.?;
+}
+
+pub fn peekMany(self: *@This(), x: usize) Token {
+    var i: usize = 0;
+    const start = self.index;
+
+    while (self.peek().tag != .EOF and i < x) : (i += 1) {
+        _ = self.pop();
+    }
+    const lastToken = self.peek();
+    self.peeked = null;
+
+    self.index = start;
+    _ = self.peek();
+
+    return lastToken;
 }
 
 pub fn pop(self: *@This()) Token {

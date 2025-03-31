@@ -17,6 +17,7 @@ pub const TokenType = enum {
     closeBrace,
 
     semicolon,
+    colon,
 
     //keyword
     let,
@@ -34,6 +35,7 @@ pub const TokenType = enum {
     asterik,
     slash,
     caret,
+    equal,
 
     EOF,
 
@@ -45,6 +47,7 @@ pub const TokenType = enum {
             .openBrace => "{",
             .closeBrace => "}",
 
+            .colon => ":",
             .semicolon => ";",
 
             .let => "let",
@@ -60,6 +63,7 @@ pub const TokenType = enum {
             .asterik => "*",
             .slash => "/",
             .caret => "^",
+            .equal => "=",
 
             .EOF => "EOF",
         };
@@ -73,6 +77,7 @@ pub const TokenType = enum {
             .openBrace => "{",
             .closeBrace => "}",
 
+            .colon => ":",
             .semicolon => ";",
 
             .let => "let",
@@ -88,6 +93,7 @@ pub const TokenType = enum {
             .asterik => "*",
             .slash => "/",
             .caret => "^",
+            .equal => "=",
 
             .EOF => "EOF",
         };

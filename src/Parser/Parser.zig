@@ -292,7 +292,7 @@ fn parseExpression(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedT
 fn parseTerm(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!usize {
     const nextToken = self.peek();
 
-    if (!try self.expect(nextToken, &[_]Lexer.TokenType{ .numberLiteral, .openParen })) return error.UnexpectedToken;
+    if (!try self.expect(nextToken, &[_]Lexer.TokenType{ .numberLiteral, .openParen, .minus })) return error.UnexpectedToken;
 
     switch (nextToken.tag) {
         .numberLiteral => {
@@ -305,6 +305,22 @@ fn parseTerm(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})
             });
 
             return nodeIndex;
+        },
+        .minus => {
+            const op = self.pop();
+
+            const expr = try self.parseTerm();
+
+            try self.temp.append(.{
+                .tag = switch (op.tag) {
+                    .minus => .neg,
+                    else => unreachable,
+                },
+                .token = op,
+                .data = .{ expr, 0 },
+            });
+
+            return self.temp.items.len - 1;
         },
         .openParen => {
             self.depth += 1;
@@ -439,6 +455,14 @@ fn toStringExpression(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize)
             const leftIndex = node.data[0];
 
             try self.toStringExpression(cont, d, leftIndex);
+        },
+        .neg => {
+            try cont.appendSlice(node.token.?.tag.toSymbol().?);
+            try cont.append('(');
+            const leftIndex = node.data[0];
+
+            try self.toStringExpression(cont, d, leftIndex);
+            try cont.append(')');
         },
         .lit => {
             try cont.appendSlice(node.token.?.getText(self.l.content));

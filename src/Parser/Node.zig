@@ -19,6 +19,7 @@ pub const Tag = enum {
     subtraction,
     multiplication,
     parentesis,
+    neg,
 
     lit,
 };

@@ -59,13 +59,14 @@ pub fn deinit(self: *@This()) void {
 pub fn expect(self: *@This(), token: Lexer.Token, t: []const Lexer.TokenType) std.mem.Allocator.Error!bool {
     const ex = try self.alloc.dupe(Lexer.TokenType, t);
     const is = Util.listContains(Lexer.TokenType, ex, token.tag);
-    if (!is)
+    if (!is) {
         try self.errors.append(UnexpectedToken{
             .expected = ex,
             .found = token.tag,
             .loc = token.loc,
             .alloc = self.alloc,
         });
+    }
 
     return is;
 }
@@ -189,7 +190,11 @@ fn parseBody(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})
     while (self.peek().tag != .closeBrace) {
         const top = self.temp.items.len;
         self.parseStatement() catch |err| switch (err) {
-            error.UnexpectedToken => self.temp.shrinkRetainingCapacity(top),
+            error.UnexpectedToken => {
+                self.temp.shrinkRetainingCapacity(top);
+                while (self.peek().tag != .semicolon) : (_ = self.pop()) {}
+                _ = self.pop();
+            },
             error.OutOfMemory => return error.OutOfMemory,
         };
     }
@@ -249,12 +254,16 @@ fn parseExpression(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedT
 
     while (nextToken.tag != .semicolon and nextToken.tag != .closeParen) : (nextToken = self.peek()) {
         const op = self.pop();
-        if (!try self.expect(op, &.{.plus})) return error.UnexpectedToken;
+        if (!try self.expect(op, &.{ .plus, .minus })) return error.UnexpectedToken;
 
         const right = try self.parseTerm();
 
         try self.temp.append(.{
-            .tag = .plus,
+            .tag = switch (op.tag) {
+                .minus => .minus,
+                .plus => .plus,
+                else => unreachable,
+            },
             .token = op,
             .data = .{ expr, right },
         });
@@ -374,7 +383,9 @@ fn toStringStatement(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) 
 fn toStringExpression(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) std.mem.Allocator.Error!void {
     const node = self.nodeList.items[i];
     switch (node.tag) {
-        .plus => {
+        .plus, .minus => {
+            try cont.append('(');
+
             const leftIndex = node.data[0];
             try self.toStringExpression(cont, d, leftIndex);
 
@@ -383,6 +394,8 @@ fn toStringExpression(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize)
 
             const rightIndex = node.data[1];
             try self.toStringExpression(cont, d, rightIndex);
+
+            try cont.append(')');
         },
         .lit => {
             try cont.append(' ');

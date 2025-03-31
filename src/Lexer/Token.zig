@@ -30,6 +30,7 @@ pub const TokenType = enum {
 
     //Symbols
     plus,
+    minus,
 
     EOF,
 
@@ -52,6 +53,7 @@ pub const TokenType = enum {
             .iden => null,
 
             .plus => "+",
+            .minus => "-",
 
             .EOF => "EOF",
         };

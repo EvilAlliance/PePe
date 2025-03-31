@@ -92,7 +92,7 @@ fn advance(self: *@This()) Token {
                 self.advanceIndex();
                 t.tag = .closeBrace;
             },
-            '0'...'1' => {
+            '0'...'9' => {
                 t.tag = .numberLiteral;
                 continue :state .numberLiteral;
             },
@@ -103,6 +103,10 @@ fn advance(self: *@This()) Token {
             '+' => {
                 self.advanceIndex();
                 t.tag = .plus;
+            },
+            '-' => {
+                self.advanceIndex();
+                t.tag = .minus;
             },
             else => {
                 Logger.log.info("Found {s}", .{self.content[self.index .. self.index + 1]});

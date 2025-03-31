@@ -75,10 +75,6 @@ fn peek(self: *@This()) Lexer.Token {
     return self.l.peek();
 }
 
-fn peekMany(self: *@This(), x: usize) Lexer.Token {
-    return self.l.peekMany(x);
-}
-
 fn popIf(self: *@This(), t: Lexer.TokenType) ?Lexer.Token {
     if (self.l.peek().tag != t) return null;
     return self.l.pop();

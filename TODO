@@ -1,8 +1,9 @@
 TODO: Runtime check for overflow depending of release or safe
 TODO: Fuse Lexer to the parser
-TODO: Make Lexer ignore comments
 TODO: TypeCheck does not check if main returns the correct type
 DONE: Change unexpeceted change when new log is created
 DONE: Make my own log function, think it to print error with more information
 DONE: Unexpected should have multiple tokentypes
 DONE: Merge Location and Pretty Location
+DONE: Make Lexer ignore comments
+DONE: Add comment to Expr11 that ^ is O(log(b)) being a ^ b

@@ -34,6 +34,8 @@ const Status = enum {
     start,
     identifier,
     numberLiteral,
+    slash,
+    ignoreEndLine,
 };
 
 fn advanceIndex(self: *@This()) void {
@@ -115,6 +117,7 @@ fn advance(self: *@This()) Token {
             '/' => {
                 self.advanceIndex();
                 t.tag = .slash;
+                continue :state .slash;
             },
             '^' => {
                 self.advanceIndex();
@@ -141,6 +144,24 @@ fn advance(self: *@This()) Token {
             switch (self.content[self.index]) {
                 '0'...'9' => continue :state .numberLiteral,
                 else => {},
+            }
+        },
+        .slash => {
+            switch (self.content[self.index]) {
+                '/' => continue :state .ignoreEndLine,
+                else => {},
+            }
+        },
+        .ignoreEndLine => {
+            switch (self.content[self.index]) {
+                '\n' => {
+                    self.advanceIndex();
+                    continue :state .start;
+                },
+                else => {
+                    self.advanceIndex();
+                    continue :state .ignoreEndLine;
+                },
             }
         },
     }

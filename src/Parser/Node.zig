@@ -1,6 +1,6 @@
 const Lexer = @import("./../Lexer/Lexer.zig");
 
-const Tag = enum {
+pub const Tag = enum {
     root,
 
     funcDecl,
@@ -15,8 +15,9 @@ const Tag = enum {
     ret,
 
     //expresion
-    plus,
-    minus,
+    addition,
+    subtraction,
+    multiplication,
 
     lit,
 };

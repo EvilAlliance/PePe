@@ -15,9 +15,11 @@ const tb = @import("../libs/tb/tb.zig");
 const tbHelper = @import("../TBHelper.zig");
 const getType = tbHelper.getType;
 
-pub fn operandPresedence(t: Lexer.TokenType) u8 {
+pub fn operandPresedence(t: Parser.Node.Tag) u8 {
     return switch (t) {
-        .plus => 0,
+        .multiplication => 1,
+        .addition => 2,
+        .subtraction => 2,
         else => unreachable,
     };
 }

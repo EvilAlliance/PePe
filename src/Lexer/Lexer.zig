@@ -108,6 +108,10 @@ fn advance(self: *@This()) Token {
                 self.advanceIndex();
                 t.tag = .minus;
             },
+            '*' => {
+                self.advanceIndex();
+                t.tag = .asterik;
+            },
             else => {
                 Logger.log.info("Found {s}", .{self.content[self.index .. self.index + 1]});
                 unreachable;

@@ -254,21 +254,36 @@ fn parseExpression(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedT
 
     while (nextToken.tag != .semicolon and nextToken.tag != .closeParen) : (nextToken = self.peek()) {
         const op = self.pop();
-        if (!try self.expect(op, &.{ .plus, .minus })) return error.UnexpectedToken;
+        if (!try self.expect(op, &.{ .plus, .minus, .asterik })) return error.UnexpectedToken;
+
+        var tag: Node.Tag = undefined;
+        switch (op.tag) {
+            .minus => tag = .subtraction,
+            .plus => tag = .addition,
+            .asterik => tag = .multiplication,
+            else => unreachable,
+        }
 
         const right = try self.parseTerm();
 
-        try self.temp.append(.{
-            .tag = switch (op.tag) {
-                .minus => .minus,
-                .plus => .plus,
-                else => unreachable,
-            },
-            .token = op,
-            .data = .{ expr, right },
-        });
+        const node = &self.temp.items[expr];
+        if (node.tag != .lit and Expression.operandPresedence(node.tag) >= Expression.operandPresedence(tag)) {
+            const leftRight = node.data[1];
+            node.*.data[1] = self.temp.items.len;
+            try self.temp.append(.{
+                .tag = tag,
+                .token = op,
+                .data = .{ leftRight, right },
+            });
+        } else {
+            try self.temp.append(.{
+                .tag = tag,
+                .token = op,
+                .data = .{ expr, right },
+            });
 
-        expr = self.temp.items.len - 1;
+            expr = self.temp.items.len - 1;
+        }
     }
 
     return expr;
@@ -383,7 +398,7 @@ fn toStringStatement(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) 
 fn toStringExpression(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) std.mem.Allocator.Error!void {
     const node = self.nodeList.items[i];
     switch (node.tag) {
-        .plus, .minus => {
+        .addition, .subtraction, .multiplication => {
             try cont.append('(');
 
             const leftIndex = node.data[0];
@@ -391,6 +406,7 @@ fn toStringExpression(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize)
 
             try cont.append(' ');
             try cont.appendSlice(node.token.?.tag.toSymbol().?);
+            try cont.append(' ');
 
             const rightIndex = node.data[1];
             try self.toStringExpression(cont, d, rightIndex);
@@ -398,7 +414,6 @@ fn toStringExpression(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize)
             try cont.append(')');
         },
         .lit => {
-            try cont.append(' ');
             try cont.appendSlice(node.token.?.getText(self.l.content));
         },
         else => unreachable,

@@ -33,6 +33,7 @@ pub const TokenType = enum {
     minus,
     asterik,
     slash,
+    caret,
 
     EOF,
 
@@ -58,6 +59,7 @@ pub const TokenType = enum {
             .minus => "-",
             .asterik => "*",
             .slash => "/",
+            .caret => "^",
 
             .EOF => "EOF",
         };
@@ -85,6 +87,7 @@ pub const TokenType = enum {
             .minus => "-",
             .asterik => "*",
             .slash => "/",
+            .caret => "^",
 
             .EOF => "EOF",
         };

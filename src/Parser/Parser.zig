@@ -267,7 +267,7 @@ fn parseExpression(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedT
         const right = try self.parseTerm();
 
         const node = &self.temp.items[expr];
-        if (node.tag != .lit and Expression.operandPresedence(node.tag) >= Expression.operandPresedence(tag)) {
+        if (node.tag != .lit and Expression.operandPresedence(node.tag) > Expression.operandPresedence(tag)) {
             const leftRight = node.data[1];
             node.*.data[1] = self.temp.items.len;
             try self.temp.append(.{

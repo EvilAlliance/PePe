@@ -14,15 +14,15 @@ alloc: std.mem.Allocator,
 pub fn display(self: @This()) void {
     var arr = std.BoundedArray(u8, 10 * 1024).init(0) catch return;
 
-    arr.appendSlice(@tagName(self.expected[0])) catch return;
+    arr.appendSlice(self.expected[0].getName()) catch return;
     for (self.expected[1..]) |e| {
         arr.appendSlice(", ") catch return;
-        arr.appendSlice(@tagName(e)) catch return;
+        arr.appendSlice(e.getName()) catch return;
     }
 
     Logger.logLocation.err(self.loc, "Expected: {s} but found: {s}", .{
         arr.buffer,
-        @tagName(self.found),
+        self.found.getName(),
     });
 }
 

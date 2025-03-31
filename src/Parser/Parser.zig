@@ -267,7 +267,7 @@ fn parseExpression(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedT
         const right = try self.parseTerm();
 
         const node = &self.temp.items[expr];
-        if (node.tag != .lit and Expression.operandPresedence(node.tag) > Expression.operandPresedence(tag)) {
+        if (node.tag != .lit and node.tag != .parentesis and Expression.operandPresedence(node.tag) > Expression.operandPresedence(tag)) {
             const leftRight = node.data[1];
             node.*.data[1] = self.temp.items.len;
             try self.temp.append(.{
@@ -292,21 +292,43 @@ fn parseExpression(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedT
 fn parseTerm(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!usize {
     const nextToken = self.peek();
 
-    if (!try self.expect(nextToken, &[_]Lexer.TokenType{.numberLiteral})) return error.UnexpectedToken;
+    if (!try self.expect(nextToken, &[_]Lexer.TokenType{ .numberLiteral, .openParen })) return error.UnexpectedToken;
 
-    if (nextToken.tag == .numberLiteral) {
-        const nodeIndex = self.temp.items.len;
+    switch (nextToken.tag) {
+        .numberLiteral => {
+            const nodeIndex = self.temp.items.len;
 
-        try self.temp.append(.{
-            .tag = .lit,
-            .token = self.pop(),
-            .data = .{ 0, 0 },
-        });
+            try self.temp.append(.{
+                .tag = .lit,
+                .token = self.pop(),
+                .data = .{ 0, 0 },
+            });
 
-        return nodeIndex;
+            return nodeIndex;
+        },
+        .openParen => {
+            self.depth += 1;
+
+            _ = self.pop();
+
+            const expr = try self.parseExpression();
+            if (!try self.expect(self.peek(), &.{.closeParen})) return error.UnexpectedToken;
+
+            _ = self.pop();
+
+            std.debug.assert(self.depth != 0);
+            self.depth -= 1;
+
+            try self.temp.append(.{
+                .tag = .parentesis,
+                .token = null,
+                .data = .{ expr, 0 },
+            });
+
+            return self.temp.items.len - 1;
+        },
+        else => unreachable,
     }
-
-    unreachable;
 }
 
 pub fn toString(self: *@This(), alloc: std.mem.Allocator) std.mem.Allocator.Error!std.ArrayList(u8) {
@@ -412,6 +434,11 @@ fn toStringExpression(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize)
             try self.toStringExpression(cont, d, rightIndex);
 
             try cont.append(')');
+        },
+        .parentesis => {
+            const leftIndex = node.data[0];
+
+            try self.toStringExpression(cont, d, leftIndex);
         },
         .lit => {
             try cont.appendSlice(node.token.?.getText(self.l.content));

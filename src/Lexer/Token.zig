@@ -35,6 +35,32 @@ pub const TokenType = enum {
 
     EOF,
 
+    pub fn getName(self: @This()) []const u8 {
+        return switch (self) {
+            .openParen => "(",
+            .closeParen => ")",
+
+            .openBrace => "{",
+            .closeBrace => "}",
+
+            .semicolon => ";",
+
+            .let => "let",
+            .mut => "mut",
+            .ret => "return",
+            .func => "fn",
+
+            .numberLiteral => "number literal",
+            .iden => "identifier",
+
+            .plus => "+",
+            .minus => "-",
+            .asterik => "*",
+
+            .EOF => "EOF",
+        };
+    }
+
     pub fn toSymbol(self: @This()) ?[]const u8 {
         return switch (self) {
             .openParen => "(",

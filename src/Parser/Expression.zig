@@ -18,6 +18,7 @@ const getType = tbHelper.getType;
 pub fn operandPresedence(t: Parser.Node.Tag) u8 {
     return switch (t) {
         .multiplication => 1,
+        .division => 1,
         .addition => 2,
         .subtraction => 2,
         else => unreachable,

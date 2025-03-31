@@ -112,6 +112,10 @@ fn advance(self: *@This()) Token {
                 self.advanceIndex();
                 t.tag = .asterik;
             },
+            '/' => {
+                self.advanceIndex();
+                t.tag = .slash;
+            },
             else => {
                 Logger.log.info("Found {s}", .{self.content[self.index .. self.index + 1]});
                 unreachable;

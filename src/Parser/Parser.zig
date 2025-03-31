@@ -254,13 +254,14 @@ fn parseExpression(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedT
 
     while (nextToken.tag != .semicolon and nextToken.tag != .closeParen) : (nextToken = self.peek()) {
         const op = self.pop();
-        if (!try self.expect(op, &.{ .plus, .minus, .asterik })) return error.UnexpectedToken;
+        if (!try self.expect(op, &.{ .plus, .minus, .asterik, .slash })) return error.UnexpectedToken;
 
         var tag: Node.Tag = undefined;
         switch (op.tag) {
             .minus => tag = .subtraction,
             .plus => tag = .addition,
             .asterik => tag = .multiplication,
+            .slash => tag = .division,
             else => unreachable,
         }
 
@@ -436,7 +437,7 @@ fn toStringStatement(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) 
 fn toStringExpression(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) std.mem.Allocator.Error!void {
     const node = self.nodeList.items[i];
     switch (node.tag) {
-        .addition, .subtraction, .multiplication => {
+        .addition, .subtraction, .multiplication, .division => {
             try cont.append('(');
 
             const leftIndex = node.data[0];

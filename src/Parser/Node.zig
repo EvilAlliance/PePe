@@ -18,6 +18,7 @@ pub const Tag = enum {
     addition,
     subtraction,
     multiplication,
+    division,
     parentesis,
     neg,
 

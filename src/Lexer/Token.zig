@@ -25,6 +25,16 @@ pub const TokenType = enum {
     ret,
     func,
 
+    //Types
+    unsigned8,
+    unsigned16,
+    unsigned32,
+    unsigned64,
+    signed8,
+    signed16,
+    signed32,
+    signed64,
+
     //Can be many things
     numberLiteral,
     iden,
@@ -40,32 +50,10 @@ pub const TokenType = enum {
     EOF,
 
     pub fn getName(self: @This()) []const u8 {
-        return switch (self) {
-            .openParen => "(",
-            .closeParen => ")",
-
-            .openBrace => "{",
-            .closeBrace => "}",
-
-            .colon => ":",
-            .semicolon => ";",
-
-            .let => "let",
-            .mut => "mut",
-            .ret => "return",
-            .func => "fn",
-
+        return self.toSymbol() orelse switch (self) {
             .numberLiteral => "number literal",
             .iden => "identifier",
-
-            .plus => "+",
-            .minus => "-",
-            .asterik => "*",
-            .slash => "/",
-            .caret => "^",
-            .equal => "=",
-
-            .EOF => "EOF",
+            else => unreachable,
         };
     }
 
@@ -84,6 +72,15 @@ pub const TokenType = enum {
             .mut => "mut",
             .ret => "return",
             .func => "fn",
+
+            .unsigned8 => "u8",
+            .unsigned16 => "u16",
+            .unsigned32 => "u32",
+            .unsigned64 => "u64",
+            .signed8 => "s8",
+            .signed16 => "s16",
+            .signed32 => "s32",
+            .signed64 => "s64",
 
             .numberLiteral => null,
             .iden => null,
@@ -105,6 +102,16 @@ const keyword = std.StaticStringMap(TokenType).initComptime(.{
     .{ "mut", .mut },
     .{ "return", .ret },
     .{ "fn", .func },
+
+    .{ "u8", .unsigned8 },
+    .{ "u16", .unsigned16 },
+    .{ "u32", .unsigned32 },
+    .{ "u64", .unsigned64 },
+
+    .{ "s8", .signed8 },
+    .{ "s16", .signed16 },
+    .{ "s32", .signed32 },
+    .{ "s64", .signed64 },
 });
 
 tag: TokenType,

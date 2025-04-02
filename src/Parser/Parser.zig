@@ -163,7 +163,7 @@ fn parseFuncProto(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedTo
 }
 
 fn parseType(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!usize {
-    if (!try self.expect(self.peek(), &.{.iden})) return error.UnexpectedToken;
+    if (!try self.expect(self.peek(), &.{ .unsigned8, .unsigned16, .unsigned32, .unsigned64, .signed8, .signed16, .signed32, .signed64 })) return error.UnexpectedToken;
     const mainToken = self.pop();
 
     const nodeIndex = self.temp.items.len;

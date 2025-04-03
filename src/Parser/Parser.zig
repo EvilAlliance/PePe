@@ -135,7 +135,7 @@ fn parseFuncDelc(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedTok
         self.temp.items[nodeIndex].data[1] = self.temp.items.len;
         try self.parseStatement();
     } else {
-        const p = try self.parseBody();
+        const p = try self.parseScope();
         self.temp.items[nodeIndex].data[1] = p;
     }
 }
@@ -176,14 +176,14 @@ fn parseType(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})
     return nodeIndex;
 }
 
-fn parseBody(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!usize {
+fn parseScope(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!usize {
     _ = self.popIf(.openBrace) orelse unreachable;
 
     const nodeIndex = self.temp.items.len;
 
     try self.temp.append(.{
         .token = null,
-        .tag = .body,
+        .tag = .scope,
         .data = .{ nodeIndex + 1, 0 },
     });
 
@@ -423,12 +423,12 @@ pub fn toString(self: *@This(), alloc: std.mem.Allocator) std.mem.Allocator.Erro
 
                 try self.toStringFuncProto(&cont, 0, node.data[0]);
 
-                const body = self.nodeList.items[node.data[1]];
-                switch (body.tag) {
-                    .body => try self.toStringBody(&cont, 0, node.data[1]),
+                const scope = self.nodeList.items[node.data[1]];
+                switch (scope.tag) {
+                    .scope => try self.toStringScope(&cont, 0, node.data[1]),
                     else => try self.toStringStatement(&cont, 0, node.data[1]),
                 }
-                i = body.data[1];
+                i = scope.data[1];
             },
             else => unreachable,
         }
@@ -454,14 +454,14 @@ fn toStringType(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) std.m
     try cont.appendSlice(self.nodeList.items[i].token.?.getText(self.l.content));
 }
 
-fn toStringBody(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) std.mem.Allocator.Error!void {
-    const body = self.nodeList.items[i];
-    std.debug.assert(body.tag == .body);
+fn toStringScope(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) std.mem.Allocator.Error!void {
+    const scope = self.nodeList.items[i];
+    std.debug.assert(scope.tag == .scope);
 
     try cont.appendSlice("{ \n");
 
-    var j = body.data[0];
-    const end = body.data[1];
+    var j = scope.data[0];
+    const end = scope.data[1];
 
     while (j < end) {
         const node = self.nodeList.items[j];

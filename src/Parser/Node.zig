@@ -10,8 +10,7 @@ pub const Tag = enum {
     args,
     type,
 
-    // Body of anything or scope
-    body,
+    scope,
 
     // Right must be free for the index of next statement
     ret,

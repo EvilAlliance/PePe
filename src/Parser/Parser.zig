@@ -96,9 +96,8 @@ fn parseRoot(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})
     try self.temp.insert(0, .{ .tag = .root, .token = null, .data = .{ 1, 0 } });
 
     var t = self.peek();
-    if (!try self.expect(t, &[_]Lexer.TokenType{.func})) return error.UnexpectedToken;
     while (t.tag != .EOF) : (t = self.l.peek()) {
-        if (!try self.expect(t, &.{ .func, .let })) return error.UnexpectedToken;
+        if (!try self.expect(t, &.{.func})) return error.UnexpectedToken;
 
         switch (t.tag) {
             .func => try self.parseFuncDelc(),

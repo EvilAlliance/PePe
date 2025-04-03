@@ -1,6 +1,5 @@
 TODO: Runtime check for overflow depending of release or safe
 TODO: Fuse Lexer to the parser
-TODO: Add next index to node and free data[1]
 TODO: TypeCheck does not check if main returns the correct type
 DONE: Change unexpeceted change when new log is created
 DONE: Make my own log function, think it to print error with more information

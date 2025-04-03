@@ -207,11 +207,11 @@ fn parseScope(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken}
 }
 
 fn parseStatement(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!void {
-    if (!try self.expect(self.peek(), &.{ .ret, .let })) return error.UnexpectedToken;
+    if (!try self.expect(self.peek(), &.{ .ret, .iden })) return error.UnexpectedToken;
 
     const nodeIndex = switch (self.peek().tag) {
         .ret => try self.parseReturn(),
-        .let => try self.parseVariableDecl(),
+        .iden => try self.parseVariableDecl(),
         else => unreachable,
     };
 
@@ -223,29 +223,29 @@ fn parseStatement(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedTo
 }
 
 fn parseVariableDecl(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!usize {
-    _ = self.popIf(.let) orelse unreachable;
-    var tag = Node.Tag.constant;
-    if (self.popIf(.mut)) |_| tag = .variable;
+    const name = self.popIf(.iden) orelse unreachable;
 
-    if (!try self.expect(self.peek(), &.{.iden})) return error.UnexpectedToken;
-    const name = self.pop();
+    if (!try self.expect(self.peek(), &.{.colon})) return error.UnexpectedToken;
 
     const variable = self.temp.items.len;
     try self.temp.append(.{
-        .tag = tag,
+        .tag = Node.Tag.variable,
         .token = name,
         .data = .{ 0, 0 },
     });
 
     {
-        const p = try self.parseVariableProto();
+        const p, const v = try self.parseVariableProto();
+        self.temp.items[variable].tag = v;
         self.temp.items[variable].data[0] = p;
     }
 
     return variable;
 }
 
-fn parseVariableProto(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!usize {
+fn parseVariableProto(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!struct { usize, Node.Tag } {
+    var constant: Node.Tag = .variable;
+
     const proto = self.temp.items.len;
     try self.temp.append(.{
         .tag = .VarProto,
@@ -253,19 +253,31 @@ fn parseVariableProto(self: *@This()) (std.mem.Allocator.Error || error{Unexpect
         .data = .{ 0, 0 },
     });
 
-    if (self.popIf(.colon)) |_| {
+    if (!try self.expect(self.peek(), &.{.colon})) return error.UnexpectedToken;
+    _ = self.pop();
+
+    const possibleType = self.peek();
+
+    if (possibleType.tag != .colon or possibleType.tag != .equal) {
         const p = try self.parseType();
         self.temp.items[proto].data[0] = p;
     }
 
-    if (self.popIf(.equal)) |_| {
+    if (!try self.expect(self.peek(), &.{ .colon, .equal, .semicolon })) return error.UnexpectedToken;
+
+    const possibleExpr = self.peek();
+
+    if (possibleExpr.tag == .colon or possibleExpr.tag == .equal) {
+        if (self.pop().tag == .colon)
+            constant = .constant;
+
         const p = try self.parseExpression();
         self.temp.items[proto].data[1] = p;
     }
 
     if (!try self.expect(self.peek(), &.{.semicolon})) return error.UnexpectedToken;
 
-    return proto;
+    return .{ proto, constant };
 }
 
 fn parseReturn(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!usize {
@@ -498,12 +510,6 @@ fn tostringVariable(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) s
     const variable = self.nodeList.items[i];
     std.debug.assert(variable.tag == .constant or variable.tag == .variable);
 
-    switch (variable.tag) {
-        .constant => try cont.appendSlice("let"),
-        .variable => try cont.appendSlice("let mut"),
-        else => unreachable,
-    }
-
     try cont.append(' ');
     try cont.appendSlice(variable.token.?.getText(self.l.content));
 
@@ -516,7 +522,11 @@ fn tostringVariable(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) s
     }
 
     if (proto.data[1] != 0) {
-        try cont.appendSlice(" = ");
+        switch (variable.tag) {
+            .constant => try cont.appendSlice(" : "),
+            .variable => try cont.appendSlice(" = "),
+            else => unreachable,
+        }
         try self.toStringExpression(cont, d, proto.data[1]);
     }
 }

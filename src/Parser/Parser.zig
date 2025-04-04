@@ -62,6 +62,7 @@ pub fn deinit(self: *@This()) void {
     }
 
     self.errors.deinit();
+    self.temp.deinit();
 }
 
 pub fn expect(self: *@This(), token: Lexer.Token, t: []const Lexer.TokenType) std.mem.Allocator.Error!bool {
@@ -98,7 +99,7 @@ pub fn parse(self: *@This()) (std.mem.Allocator.Error)!Ast {
         else => {},
     };
 
-    return Ast.init(self.alloc, self.functions, self.nodeList);
+    return Ast.init(self.alloc, self.functions, self.nodeList, self.source);
 }
 
 fn parseRoot(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!void {

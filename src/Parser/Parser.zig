@@ -273,7 +273,7 @@ fn parseVariableProto(self: *@This()) (std.mem.Allocator.Error || error{Unexpect
         self.temp.items[proto].data[0] = p;
     }
 
-    if (!try self.expect(self.peek(), &.{ .colon, .equal })) return error.UnexpectedToken;
+    if (!try self.expect(self.peek(), &.{ .colon, .equal, .semicolon })) return error.UnexpectedToken;
 
     const possibleExpr = self.peek();
 

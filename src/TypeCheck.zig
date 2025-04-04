@@ -90,8 +90,10 @@ const TypeChecker = struct {
                 const proto = self.ast.nodeList.items[stmt.data[0]];
                 if (proto.data[0] != 0) {
                     const t = self.ast.nodeList.items[proto.data[0]];
-                    const expr = self.ast.nodeList.items[proto.data[1]];
-                    self.checkExpressionExpectedType(expr, t);
+                    if (proto.data[1] != 0) {
+                        const expr = self.ast.nodeList.items[proto.data[1]];
+                        self.checkExpressionExpectedType(expr, t);
+                    }
                 } else {
                     Logger.logLocation.err(stmt.token.?.loc, "Type Inference not implemented", .{});
                     unreachable;

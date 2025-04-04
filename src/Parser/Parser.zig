@@ -149,6 +149,8 @@ fn parseFuncDelc(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedTok
         const p = try self.parseScope();
         self.temp.items[nodeIndex].data[1] = p;
     }
+
+    try self.functions.put(mainToken.getText(self.source), nodeIndex);
 }
 
 fn parseFuncProto(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!usize {

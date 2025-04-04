@@ -20,8 +20,9 @@ pub const nl = @import("./NodeListUtil.zig");
 pub const Expression = @import("Expression.zig");
 pub const Ast = @import("Ast.zig");
 
-l: *Lexer,
+l: Lexer,
 alloc: Allocator,
+source: [:0]const u8,
 
 functions: Ast.Program,
 nodeList: Ast.NodeList,
@@ -31,10 +32,21 @@ errors: std.ArrayList(UnexpectedToken),
 
 depth: usize = 0,
 
-pub fn init(alloc: Allocator, l: *Lexer) @This() {
+pub fn init(alloc: Allocator, path: []const u8) ?@This() {
+    const absPath, const source = Util.readEntireFile(alloc, path) catch |err| {
+        switch (err) {
+            error.couldNotOpenFile => Logger.log.err("Could not open file: {s}\n", .{path}),
+            error.couldNotReadFile => Logger.log.err("Could not read file: {s}]n", .{path}),
+            error.couldNotGetFileSize => Logger.log.err("Could not get file ({s}) size\n", .{path}),
+            error.couldNotGetAbsolutePath => Logger.log.err("Could not get absolute path of file ({s})\n", .{path}),
+        }
+        return null;
+    };
+
     return @This(){
         .alloc = alloc,
-        .l = l,
+        .l = Lexer.init(alloc, path, absPath, source),
+        .source = source,
 
         .functions = Ast.Program.init(alloc),
         .nodeList = Ast.NodeList.init(alloc),
@@ -398,6 +410,10 @@ fn parseTerm(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})
     }
 }
 
+pub fn lexerToString(self: *@This(), alloc: std.mem.Allocator) std.mem.Allocator.Error!std.ArrayList(u8) {
+    return self.l.toString(alloc);
+}
+
 pub fn toString(self: *@This(), alloc: std.mem.Allocator) std.mem.Allocator.Error!std.ArrayList(u8) {
     var cont = std.ArrayList(u8).init(alloc);
     if (self.nodeList.items.len == 0) return cont;
@@ -412,7 +428,7 @@ pub fn toString(self: *@This(), alloc: std.mem.Allocator) std.mem.Allocator.Erro
             .funcDecl => {
                 try cont.appendSlice("fn ");
 
-                try cont.appendSlice(node.token.?.getText(self.l.content));
+                try cont.appendSlice(node.token.?.getText(self.source));
 
                 try self.toStringFuncProto(&cont, 0, node.data[0]);
 
@@ -444,7 +460,7 @@ fn toStringFuncProto(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) 
 
 fn toStringType(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) std.mem.Allocator.Error!void {
     _ = d;
-    try cont.appendSlice(self.nodeList.items[i].token.?.getText(self.l.content));
+    try cont.appendSlice(self.nodeList.items[i].token.?.getText(self.source));
 }
 
 fn toStringScope(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) std.mem.Allocator.Error!void {
@@ -492,7 +508,7 @@ fn tostringVariable(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) s
     const variable = self.nodeList.items[i];
     std.debug.assert(variable.tag == .constant or variable.tag == .variable);
 
-    try cont.appendSlice(variable.token.?.getText(self.l.content));
+    try cont.appendSlice(variable.token.?.getText(self.source));
 
     const proto = self.nodeList.items[variable.data[0]];
     std.debug.assert(proto.tag == .VarProto);
@@ -549,10 +565,10 @@ fn toStringExpression(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize)
             try cont.append(')');
         },
         .load => {
-            try cont.appendSlice(node.token.?.getText(self.l.content));
+            try cont.appendSlice(node.token.?.getText(self.source));
         },
         .lit => {
-            try cont.appendSlice(node.token.?.getText(self.l.content));
+            try cont.appendSlice(node.token.?.getText(self.source));
         },
         else => unreachable,
     }

@@ -13,13 +13,6 @@ const Allocator = std.mem.Allocator;
 const print = std.debug.print;
 const assert = std.debug.assert;
 
-const LexerCreationError = error{
-    couldNotOpenFile,
-    couldNotGetFileSize,
-    couldNotReadFile,
-    couldNotGetAbsolutePath,
-};
-
 path: []const u8,
 absPath: []const u8,
 content: [:0]const u8,
@@ -211,14 +204,7 @@ pub fn toString(self: *@This(), alloc: std.mem.Allocator) std.mem.Allocator.Erro
     return cont;
 }
 
-pub fn init(alloc: Allocator, path: []const u8) LexerCreationError!@This() {
-    const abspath = std.fs.realpathAlloc(alloc, path) catch return error.couldNotGetAbsolutePath;
-    const f = std.fs.openFileAbsolute(abspath, .{ .mode = .read_only }) catch return error.couldNotOpenFile;
-    defer f.close();
-    const file_size = f.getEndPos() catch return error.couldNotGetFileSize;
-    const max_bytes: usize = @intCast(file_size + 1);
-    const c = f.readToEndAllocOptions(alloc, max_bytes, max_bytes, 1, 0) catch return error.couldNotReadFile;
-
+pub fn init(alloc: Allocator, path: []const u8, abspath: []const u8, c: [:0]const u8) @This() {
     const l = @This(){
         .content = c,
         .absPath = abspath,
@@ -228,23 +214,4 @@ pub fn init(alloc: Allocator, path: []const u8) LexerCreationError!@This() {
     };
 
     return l;
-}
-
-pub fn deinit(self: @This()) void {
-    self.alloc.free(self.content);
-    self.alloc.free(self.absPath);
-}
-
-pub fn lex(alloc: Allocator, arguments: Arguments) ?@This() {
-    const lexer = @This().init(alloc, arguments.path) catch |err| {
-        switch (err) {
-            error.couldNotOpenFile => Logger.log.err("Could not open file: {s}\n", .{arguments.path}),
-            error.couldNotReadFile => Logger.log.err("Could not read file: {s}]n", .{arguments.path}),
-            error.couldNotGetFileSize => Logger.log.err("Could not get file ({s}) size\n", .{arguments.path}),
-            error.couldNotGetAbsolutePath => Logger.log.err("Could not get absolute path of file ({s})\n", .{arguments.path}),
-        }
-        return null;
-    };
-
-    return lexer;
 }

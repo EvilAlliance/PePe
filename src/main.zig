@@ -1,7 +1,7 @@
 const std = @import("std");
 const Logger = @import("Logger.zig");
 
-const util = @import("Util.zig");
+const Util = @import("Util.zig");
 const Lexer = @import("./Lexer/Lexer.zig");
 const ParseArguments = @import("ParseArgs.zig");
 const typeCheck = @import("TypeCheck.zig").typeCheck;
@@ -82,6 +82,7 @@ fn writeAll(c: []const u8, arg: Arguments, name: []u8) void {
 //
 //     return 0;
 // }
+//
 
 pub fn main() u8 {
     var timer = std.time.Timer.start() catch unreachable;
@@ -102,27 +103,23 @@ pub fn main() u8 {
 
     if (arguments.bench)
         Logger.log.info("Lexing and Parsing", .{});
-    var lexer = lex(gpa, arguments) orelse {
-        usage();
-        return 1;
-    };
-    defer lexer.deinit();
+
+    var parser = Parser.init(gpa, arguments.path) orelse return 1;
+    defer parser.deinit();
 
     if (arguments.lex) {
-        const lexContent = lexer.toString(gpa) catch {
+        const lexContent = parser.lexerToString(gpa) catch {
             Logger.log.err("Out of memory", .{});
             return 1;
         };
         defer lexContent.deinit();
 
-        const name = getName(lexer.absPath, "lex");
+        const name = getName(arguments.path, "lex");
         writeAll(lexContent.items, arguments, name);
 
         return 0;
     }
 
-    var parser = Parser.init(gpa, &lexer);
-    defer parser.deinit();
     _ = parser.parse() catch |err| switch (err) {
         error.OutOfMemory => {
             Logger.log.err("Out of memory", .{});
@@ -144,7 +141,7 @@ pub fn main() u8 {
         };
         defer cont.deinit();
 
-        const name = getName(lexer.absPath, "parse");
+        const name = getName(arguments.path, "parse");
         writeAll(cont.items, arguments, name);
 
         return 0;
@@ -187,7 +184,7 @@ pub fn main() u8 {
     //     };
     //     defer cont.deinit();
     //
-    //     const name = getName(lexer.absPath, "ir");
+    //     const name = getName(arguments.path, "ir");
     //     writeAll(cont.items, arguments, name);
     //
     //     return 0;
@@ -196,7 +193,7 @@ pub fn main() u8 {
     // if (arguments.bench)
     //     Logger.log.info("CodeGen", .{});
     //
-    // const path = getName(lexer.absPath, "");
+    // const path = getName(arguments.path, "");
     //
     // var a: tb.Arena = undefined;
     // tb.Arena.create(&a, "For main Module");

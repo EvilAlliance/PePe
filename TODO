@@ -1,4 +1,5 @@
 TODO: Runtime check for overflow depending of release or safe
+TODO: Make sure the semicolons comes after clossing all parentesis in expression
 TODO: TypeCheck does not check if main returns the correct type
 DONE: Change unexpeceted change when new log is created
 DONE: Make my own log function, think it to print error with more information

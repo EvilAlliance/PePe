@@ -3,7 +3,6 @@ const std = @import("std");
 const Lexer = @import("./Lexer/Lexer.zig");
 
 pub var silence = false;
-pub var source: [:0]const u8 = .{};
 
 pub const logLocation = struct {
     pub fn info(location: Lexer.Location, comptime format: []const u8, args: anytype) void {

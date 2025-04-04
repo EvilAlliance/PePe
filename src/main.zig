@@ -120,7 +120,7 @@ pub fn main() u8 {
         return 0;
     }
 
-    _ = parser.parse() catch |err| switch (err) {
+    const ast = parser.parse() catch |err| switch (err) {
         error.OutOfMemory => {
             Logger.log.err("Out of memory", .{});
             return 1;
@@ -147,20 +147,19 @@ pub fn main() u8 {
         return 0;
     }
 
-    return 0;
+    if (arguments.bench)
+        Logger.log.info("Type Checking", .{});
 
-    // if (arguments.bench)
-    //     Logger.log.info("Type Checking", .{});
-    //
-    // if (typeCheck(parser.program) catch {
-    //     Logger.log.err("out of memory", .{});
-    //     return 1;
-    // }) return 1;
-    //
-    // if (unexpectedToken) return 1;
-    //
-    // if (arguments.bench)
-    //     Logger.log.info("Finished in {}", .{std.fmt.fmtDuration(timer.lap())});
+    if (typeCheck(ast) catch {
+        Logger.log.err("out of memory", .{});
+        return 1;
+    }) return 1;
+    if (arguments.bench)
+        Logger.log.info("Finished in {}", .{std.fmt.fmtDuration(timer.lap())});
+
+    if (parser.errors.items.len > 0) return 1;
+
+    return 0;
     //
     // if (arguments.bench)
     //     Logger.log.info("Intermediate Represetation", .{});

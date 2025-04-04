@@ -16,17 +16,16 @@ const Lexer = @import("../Lexer/Lexer.zig");
 
 pub const Node = @import("Node.zig");
 pub const UnexpectedToken = @import("UnexpectedToken.zig");
-pub const Program = std.StringHashMap(usize);
 pub const nl = @import("./NodeListUtil.zig");
-pub const NodeList = std.ArrayList(Node);
 pub const Expression = @import("Expression.zig");
+pub const Ast = @import("Ast.zig");
 
 l: *Lexer,
 alloc: Allocator,
 
-program: Program,
-nodeList: NodeList,
-temp: NodeList,
+functions: Ast.Program,
+nodeList: Ast.NodeList,
+temp: Ast.NodeList,
 
 errors: std.ArrayList(UnexpectedToken),
 
@@ -37,9 +36,9 @@ pub fn init(alloc: Allocator, l: *Lexer) @This() {
         .alloc = alloc,
         .l = l,
 
-        .program = Program.init(alloc),
-        .nodeList = NodeList.init(alloc),
-        .temp = NodeList.init(alloc),
+        .functions = Ast.Program.init(alloc),
+        .nodeList = Ast.NodeList.init(alloc),
+        .temp = Ast.NodeList.init(alloc),
 
         .errors = std.ArrayList(UnexpectedToken).init(alloc),
     };
@@ -51,10 +50,6 @@ pub fn deinit(self: *@This()) void {
     }
 
     self.errors.deinit();
-
-    self.program.deinit();
-    self.nodeList.deinit();
-    self.temp.deinit();
 }
 
 pub fn expect(self: *@This(), token: Lexer.Token, t: []const Lexer.TokenType) std.mem.Allocator.Error!bool {
@@ -85,9 +80,13 @@ fn pop(self: *@This()) Lexer.Token {
     return self.l.pop();
 }
 
-pub fn parse(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!void {
-    try self.parseRoot();
-    if (self.errors.items.len > 0) return error.UnexpectedToken;
+pub fn parse(self: *@This()) (std.mem.Allocator.Error)!Ast {
+    self.parseRoot() catch |err| switch (err) {
+        error.OutOfMemory => return error.OutOfMemory,
+        else => {},
+    };
+
+    return Ast.init(self.alloc, self.functions, self.nodeList);
 }
 
 fn parseRoot(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!void {
@@ -259,7 +258,7 @@ fn parseVariableProto(self: *@This()) (std.mem.Allocator.Error || error{Unexpect
         self.temp.items[proto].data[0] = p;
     }
 
-    if (!try self.expect(self.peek(), &.{ .colon, .equal, .semicolon })) return error.UnexpectedToken;
+    if (!try self.expect(self.peek(), &.{ .colon, .equal })) return error.UnexpectedToken;
 
     const possibleExpr = self.peek();
 

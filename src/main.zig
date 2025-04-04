@@ -123,19 +123,16 @@ pub fn main() u8 {
 
     var parser = Parser.init(gpa, &lexer);
     defer parser.deinit();
-    var unexpectedToken = false;
-    parser.parse() catch |err| switch (err) {
+    _ = parser.parse() catch |err| switch (err) {
         error.OutOfMemory => {
             Logger.log.err("Out of memory", .{});
             return 1;
         },
-        error.UnexpectedToken => {
-            unexpectedToken = true;
-            for (parser.errors.items) |e| {
-                e.display();
-            }
-        },
     };
+
+    for (parser.errors.items) |e| {
+        e.display();
+    }
 
     if (arguments.bench)
         Logger.log.info("Finished in {}", .{std.fmt.fmtDuration(timer.lap())});

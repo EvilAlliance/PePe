@@ -5,7 +5,7 @@ const Logger = @import("Logger.zig");
 const Parser = @import("./Parser/Parser.zig");
 
 const Scope = std.StringHashMap(Parser.Node);
-const Scopes = std.ArrayList(Scope);
+const Scopes = std.ArrayList(*Scope);
 
 const TypeChecker = struct {
     const Self = @This();
@@ -25,11 +25,19 @@ const TypeChecker = struct {
 
         var it = checker.ast.functions.valueIterator();
 
+        Logger.log.err("Her", .{});
         while (it.next()) |func| {
             try checker.checkFunction(checker.ast.nodeList.items[func.*]);
         }
 
         return checker.errs > 0;
+    }
+
+    pub fn deinit(self: Self) void {
+        for (self.scopes.items) |s|
+            s.deinit();
+
+        self.scopes.deinit();
     }
 
     fn checkFunction(self: *Self, node: Parser.Node) std.mem.Allocator.Error!void {
@@ -40,16 +48,21 @@ const TypeChecker = struct {
 
         const stmtORscope = self.ast.nodeList.items[node.data[1]];
 
-        try self.scopes.append(Scope.init(self.alloc));
         if (stmtORscope.tag == .scope) {
-            self.checkScope(stmtORscope, t);
+            try self.checkScope(stmtORscope, t);
         } else {
-            self.checkStatements(stmtORscope, t);
+            var scope = Scope.init(self.alloc);
+            try self.scopes.append(&scope);
+            try self.checkStatements(stmtORscope, t);
+            _ = self.scopes.pop();
         }
     }
 
-    fn checkScope(self: *Self, scope: Parser.Node, retType: Parser.Node) void {
+    fn checkScope(self: *Self, scope: Parser.Node, retType: Parser.Node) std.mem.Allocator.Error!void {
         std.debug.assert(scope.tag == .scope and retType.tag == .type);
+
+        var scopeMap = Scope.init(self.alloc);
+        try self.scopes.append(&scopeMap);
 
         var i = scope.data[0];
         const end = scope.data[1];
@@ -57,18 +70,32 @@ const TypeChecker = struct {
         while (i < end) {
             const stmt = self.ast.nodeList.items[i];
 
-            self.checkStatements(stmt, retType);
+            try self.checkStatements(stmt, retType);
 
             i = stmt.data[1];
         }
+
+        _ = self.scopes.pop();
     }
 
-    fn checkStatements(self: *Self, stmt: Parser.Node, retType: Parser.Node) void {
+    fn checkStatements(self: *Self, stmt: Parser.Node, retType: Parser.Node) std.mem.Allocator.Error!void {
         switch (stmt.tag) {
             .ret => {
                 const expr = self.ast.nodeList.items[stmt.data[0]];
 
                 self.checkExpressionExpectedType(expr, retType);
+            },
+            .variable, .constant => {
+                try self.scopes.getLast().put(stmt.token.?.getText(self.ast.source), stmt);
+                const proto = self.ast.nodeList.items[stmt.data[0]];
+                if (proto.data[0] != 0) {
+                    const t = self.ast.nodeList.items[proto.data[0]];
+                    const expr = self.ast.nodeList.items[proto.data[1]];
+                    self.checkExpressionExpectedType(expr, t);
+                } else {
+                    Logger.logLocation.err(stmt.token.?.loc, "Type Inference not implemented", .{});
+                    unreachable;
+                }
             },
             else => unreachable,
         }
@@ -133,6 +160,14 @@ const TypeChecker = struct {
                         };
                     },
                     else => unreachable,
+                }
+            },
+            .load => {
+                const v = self.scopes.getLast().get(expr.token.?.getText(self.ast.source));
+
+                if (v == null) {
+                    Logger.logLocation.err(expr.token.?.loc, "Unknown identifier in expression \"{s}\"", .{expr.token.?.getText(self.ast.source)});
+                    self.errs += 1;
                 }
             },
             .parentesis, .neg => {

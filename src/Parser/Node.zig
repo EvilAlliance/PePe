@@ -13,10 +13,10 @@ pub const Tag = enum {
     scope,
 
     // Right must be free for the index of next statement
-    ret,
-    variable, // left variable prot
+    ret, // left expression
+    variable, // left variable Prot
     constant, // left variable Proto
-    VarProto, //left tyep, right expr
+    VarProto, //left type, right expr
 
     //expresion
     addition,
@@ -26,7 +26,7 @@ pub const Tag = enum {
     power,
     parentesis,
     neg,
-    get,
+    load,
 
     lit,
 };

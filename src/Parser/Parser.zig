@@ -319,7 +319,7 @@ fn parseExpression(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedT
         const right = try self.parseTerm();
 
         const node = &self.temp.items[expr];
-        if (node.tag != .lit and node.tag != .parentesis and node.tag != .get and Expression.operandPresedence(node.tag) > Expression.operandPresedence(tag)) {
+        if (node.tag != .lit and node.tag != .parentesis and node.tag != .load and Expression.operandPresedence(node.tag) > Expression.operandPresedence(tag)) {
             const leftRight = node.data[1];
             node.*.data[1] = self.temp.items.len;
             _ = try nl.addNode(&self.temp, .{
@@ -354,7 +354,7 @@ fn parseTerm(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})
         },
         .iden => {
             return try nl.addNode(&self.temp, .{
-                .tag = .get,
+                .tag = .load,
                 .token = self.pop(),
                 .data = .{ 0, 0 },
             });
@@ -548,7 +548,7 @@ fn toStringExpression(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize)
             try self.toStringExpression(cont, d, leftIndex);
             try cont.append(')');
         },
-        .get => {
+        .load => {
             try cont.appendSlice(node.token.?.getText(self.l.content));
         },
         .lit => {

@@ -113,7 +113,7 @@ fn parseRoot(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})
         if (!try self.expect(t, &.{.func})) return error.UnexpectedToken;
 
         switch (t.tag) {
-            .func => try self.parseFuncDelc(),
+            .func => try self.parseFuncDecl(),
             // .let => unreachable,
             else => unreachable,
         }
@@ -124,7 +124,7 @@ fn parseRoot(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})
     try self.nodeList.appendSlice(self.temp.items);
 }
 
-fn parseFuncDelc(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!void {
+fn parseFuncDecl(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!void {
     _ = self.popIf(.func) orelse unreachable;
 
     if (!try self.expect(self.peek(), &.{.iden})) return error.UnexpectedToken;

@@ -128,11 +128,11 @@ pub fn init(tag: TokenType, loc: Location) Token {
     };
 }
 
-pub fn getText(self: @This(), source: []const u8) []const u8 {
-    return self.tag.toSymbol() orelse self.loc.getText(source);
+pub fn getText(self: @This()) []const u8 {
+    return self.tag.toSymbol() orelse self.loc.getText();
 }
 
-pub fn toString(self: @This(), alloc: Allocator, cont: *std.ArrayList(u8), path: []const u8, source: [:0]const u8) std.mem.Allocator.Error!void {
+pub fn toString(self: @This(), alloc: Allocator, cont: *std.ArrayList(u8), path: []const u8) std.mem.Allocator.Error!void {
     try cont.appendSlice(path);
     try cont.append(':');
 
@@ -146,7 +146,7 @@ pub fn toString(self: @This(), alloc: Allocator, cont: *std.ArrayList(u8), path:
     try cont.appendSlice(col);
     try cont.append(' ');
 
-    try cont.appendSlice(self.getText(source));
+    try cont.appendSlice(self.getText());
 
     try cont.appendSlice(" (");
     try cont.appendSlice(@tagName(self.tag));

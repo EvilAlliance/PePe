@@ -150,7 +150,7 @@ fn parseFuncDecl(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedTok
         self.temp.items[nodeIndex].data[1] = p;
     }
 
-    try self.functions.put(mainToken.getText(self.source), nodeIndex);
+    try self.functions.put(mainToken.getText(), nodeIndex);
 }
 
 fn parseFuncProto(self: *@This()) (std.mem.Allocator.Error || error{UnexpectedToken})!usize {
@@ -431,7 +431,7 @@ pub fn toString(self: *@This(), alloc: std.mem.Allocator) std.mem.Allocator.Erro
             .funcDecl => {
                 try cont.appendSlice("fn ");
 
-                try cont.appendSlice(node.token.?.getText(self.source));
+                try cont.appendSlice(node.token.?.getText());
 
                 try self.toStringFuncProto(&cont, 0, node.data[0]);
 
@@ -463,7 +463,7 @@ fn toStringFuncProto(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) 
 
 fn toStringType(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) std.mem.Allocator.Error!void {
     _ = d;
-    try cont.appendSlice(self.nodeList.items[i].token.?.getText(self.source));
+    try cont.appendSlice(self.nodeList.items[i].token.?.getText());
 }
 
 fn toStringScope(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) std.mem.Allocator.Error!void {
@@ -511,7 +511,7 @@ fn tostringVariable(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize) s
     const variable = self.nodeList.items[i];
     std.debug.assert(variable.tag == .constant or variable.tag == .variable);
 
-    try cont.appendSlice(variable.token.?.getText(self.source));
+    try cont.appendSlice(variable.token.?.getText());
 
     const proto = self.nodeList.items[variable.data[0]];
     std.debug.assert(proto.tag == .VarProto);
@@ -568,10 +568,10 @@ fn toStringExpression(self: @This(), cont: *std.ArrayList(u8), d: u64, i: usize)
             try cont.append(')');
         },
         .load => {
-            try cont.appendSlice(node.token.?.getText(self.source));
+            try cont.appendSlice(node.token.?.getText());
         },
         .lit => {
-            try cont.appendSlice(node.token.?.getText(self.source));
+            try cont.appendSlice(node.token.?.getText());
         },
         else => unreachable,
     }

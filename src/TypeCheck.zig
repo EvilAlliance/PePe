@@ -92,11 +92,11 @@ const TypeChecker = struct {
             },
             .variable, .constant => {
                 var dic = &self.scopes.items[self.scopes.items.len - 1];
-                if (dic.get(stmt.token.?.getText(self.ast.source))) |variable| {
-                    Logger.logLocation.err(stmt.token.?.loc, "Identifier {s} is already in use", .{variable.token.?.getText(self.ast.source)});
-                    Logger.logLocation.err(variable.token.?.loc, "{s} is declared in use", .{variable.token.?.getText(self.ast.source)});
+                if (dic.get(stmt.token.?.getText())) |variable| {
+                    Logger.logLocation.err(stmt.token.?.loc, "Identifier {s} is already in use", .{variable.token.?.getText()});
+                    Logger.logLocation.err(variable.token.?.loc, "{s} is declared in use", .{variable.token.?.getText()});
                 }
-                try dic.put(stmt.token.?.getText(self.ast.source), stmt);
+                try dic.put(stmt.token.?.getText(), stmt);
 
                 const a = try self.inferMachine.add(stmt);
 
@@ -129,12 +129,12 @@ const TypeChecker = struct {
                 return null;
             },
             .load => {
-                const variable = self.scopes.getLast().get(expr.token.?.getText(self.ast.source));
+                const variable = self.scopes.getLast().get(expr.token.?.getText());
 
                 if (variable) |v| {
                     return try self.inferMachine.add(v);
                 } else {
-                    Logger.logLocation.err(expr.token.?.loc, "Unknown identifier in expression \"{s}\"", .{expr.token.?.getText(self.ast.source)});
+                    Logger.logLocation.err(expr.token.?.loc, "Unknown identifier in expression \"{s}\"", .{expr.token.?.getText()});
                     self.errs += 1;
 
                     return null;
@@ -187,7 +187,7 @@ const TypeChecker = struct {
                 self.checkValueForType(expr.*, expectedType);
             },
             .load => {
-                const variable = self.scopes.getLast().get(expr.token.?.getText(self.ast.source));
+                const variable = self.scopes.getLast().get(expr.token.?.getText());
 
                 if (variable) |v| {
                     const proto = self.ast.nodeList.items[v.data[0]];
@@ -203,7 +203,7 @@ const TypeChecker = struct {
                         self.inferMachine.found(v.*, expectedType, expr.token.?.loc);
                     }
                 } else {
-                    Logger.logLocation.err(expr.token.?.loc, "Unknown identifier in expression \"{s}\"", .{expr.token.?.getText(self.ast.source)});
+                    Logger.logLocation.err(expr.token.?.loc, "Unknown identifier in expression \"{s}\"", .{expr.token.?.getText()});
                     self.errs += 1;
                 }
             },
@@ -227,7 +227,7 @@ const TypeChecker = struct {
     }
 
     fn checkValueForType(self: *Self, expr: Parser.Node, expectedType: Parser.Node) void {
-        const text = expr.token.?.getText(self.ast.source);
+        const text = expr.token.?.getText();
         switch (expectedType.token.?.tag) {
             .unsigned8 => {
                 _ = std.fmt.parseUnsigned(u8, text, 10) catch {

@@ -10,8 +10,8 @@ col: usize,
 start: usize,
 end: usize,
 
-pub fn getText(self: @This(), source: []const u8) []const u8 {
-    return source[self.start..self.end];
+pub fn getText(self: @This()) []const u8 {
+    return self.content[self.start..self.end];
 }
 
 pub fn shallowCopy(self: @This(), start: usize, end: usize) @This() {

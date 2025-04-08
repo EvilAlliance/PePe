@@ -199,10 +199,10 @@ pub fn toString(self: *@This(), alloc: std.mem.Allocator) std.mem.Allocator.Erro
 
     var t = self.pop();
     while (!self.finished) : (t = self.pop()) {
-        try t.toString(alloc, &cont, self.path, self.content);
+        try t.toString(alloc, &cont, self.path);
     }
 
-    try t.toString(alloc, &cont, self.path, self.content);
+    try t.toString(alloc, &cont, self.path);
 
     return cont;
 }

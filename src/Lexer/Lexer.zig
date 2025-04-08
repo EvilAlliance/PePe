@@ -157,6 +157,9 @@ fn advance(self: *@This()) Token {
             switch (self.content[self.index]) {
                 '\n' => {
                     self.advanceIndex();
+
+                    self.loc.col = 1;
+                    self.loc.row += 1;
                     continue :state .start;
                 },
                 else => {

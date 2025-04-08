@@ -92,6 +92,10 @@ const TypeChecker = struct {
             },
             .variable, .constant => {
                 var dic = &self.scopes.items[self.scopes.items.len - 1];
+                if (dic.get(stmt.token.?.getText(self.ast.source))) |variable| {
+                    Logger.logLocation.err(stmt.token.?.loc, "Identifier {s} is already in use", .{variable.token.?.getText(self.ast.source)});
+                    Logger.logLocation.err(variable.token.?.loc, "{s} is declared in use", .{variable.token.?.getText(self.ast.source)});
+                }
                 try dic.put(stmt.token.?.getText(self.ast.source), stmt);
 
                 const a = try self.inferMachine.add(stmt);

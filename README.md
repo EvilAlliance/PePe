@@ -1,5 +1,7 @@
 # Yots
 
+Now is being develop in [Codeberge](https://codeberg.org/SillyProgramming/Yotz), but started over
+
 Compiler to fasm linux x86-64
 
 ## Acknowledgement 
